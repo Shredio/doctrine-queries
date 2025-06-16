@@ -4,7 +4,7 @@
 	"license": "MIT",
 	"require": {
 		"php": ">=8.3",
-		"symfony/clock": "^7.3"
+		"doctrine/orm": "^3.2"
 	},
 	"autoload": {
 		"psr-4": {
@@ -25,6 +25,7 @@
 		"phpunit/phpunit": "^12.2",
 		"phpstan/phpstan-doctrine": "^2.0",
 		"doctrine/orm": "^3.4",
-		"symfony/cache": "^7.3"
+		"symfony/cache": "^7.3",
+		"symfony/clock": "^7.3"
 	}
 }
