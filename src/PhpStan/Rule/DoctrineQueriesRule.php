@@ -120,12 +120,27 @@ final readonly class DoctrineQueriesRule implements Rule
 		}
 
 		$entityService = $this->service->getEntityServiceFor($entityClassName);
+		$arguments = [];
 
-		foreach ($rules as $argumentPos => $rule) {
-			$arg = $args[$argumentPos];
+		foreach ($args as $i => $arg) {
+			$argumentName = $arg->name?->toString();
+
+			if ($argumentName === null) {
+				$arguments[$i] = $arg;
+			} else {
+				$arguments[$argumentName] = $arg;
+			}
+		}
+
+		foreach ($rules as $argumentPos => $argumentName) {
+			$arg = $arguments[$argumentName] ?? $arguments[$argumentPos] ?? null;
+			if ($arg === null) {
+				continue; // Argument is optional, skip if not provided
+			}
+
 			$argType = $scope->getType($arg->value);
 
-			if ($rule === 'criteria') {
+			if ($argumentName === 'criteria') {
 				if (!$argType->isConstantArray()->yes()) {
 					return [
 						RuleErrorBuilder::message(
@@ -145,7 +160,7 @@ final readonly class DoctrineQueriesRule implements Rule
 				continue;
 			}
 
-			if ($rule === 'orderBy') {
+			if ($argumentName === 'orderBy') {
 				foreach ($this->service->getFieldsFromOrderByType($argType) as $field) {
 					if (!$entityService->hasFieldOrAssociation($field)) {
 						return $this->invalidFieldName('orderBy', $calledOnClass, $methodName, $entityClassName, $field);
@@ -155,7 +170,7 @@ final readonly class DoctrineQueriesRule implements Rule
 				continue;
 			}
 
-			if ($rule === 'select') {
+			if ($argumentName === 'select') {
 				foreach ($this->service->getFieldsFromSelectArrayType($argType) as [$fieldName]) {
 					if (!$entityService->hasFieldOrAssociation($fieldName)) {
 						return $this->invalidFieldName('select', $calledOnClass, $methodName, $entityClassName, $fieldName);
@@ -163,7 +178,7 @@ final readonly class DoctrineQueriesRule implements Rule
 				}
  			}
 
-			if ($rule === 'field') {
+			if ($argumentName === 'field') {
 				$fieldName = $this->service->tryGetSingleStringFromType($argType);
 
 				if ($fieldName === null) {
