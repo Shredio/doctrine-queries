@@ -1,0 +1,5 @@
+services:
+	-
+		class: Shredio\DoctrineQueries\PhpStan\Rule\DoctrineQueriesRule
+		tags:
+			- phpstan.rules.rule

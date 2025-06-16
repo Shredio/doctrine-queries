@@ -1,0 +1,13 @@
+services:
+	-
+		class: Shredio\DoctrineQueries\PhpStan\TypeExtension\ScalarQueriesDynamicReturnTypeExtension
+		tags:
+			- phpstan.broker.dynamicMethodReturnTypeExtension
+	-
+		class: Shredio\DoctrineQueries\PhpStan\TypeExtension\ArrayQueriesDynamicReturnTypeExtension
+		tags:
+			- phpstan.broker.dynamicMethodReturnTypeExtension
+	-
+		class: Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineEntityServiceFactory
+	-
+		class: Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
