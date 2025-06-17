@@ -16,7 +16,7 @@ use Shredio\DoctrineQueries\Select\SelectParser;
 final readonly class ScalarQueries extends BaseQueries
 {
 
-	public const int HydrationMode = AbstractQuery::HYDRATE_SCALAR;
+	private const int HydrationMode = AbstractQuery::HYDRATE_SCALAR;
 
 	public function __construct(SimplifiedQueryBuilderFactory $queryBuilderFactory)
 	{
