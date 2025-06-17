@@ -76,4 +76,22 @@ final readonly class DoctrineQueries
 		return (int) $qb->getQuery()->getSingleScalarResult();
 	}
 
+	/**
+	 * Deletes entities by a set of criteria.
+	 *
+	 * @param class-string $entity
+	 * @param array<string, mixed> $criteria
+	 * @return int<0, max> Number of deleted entities
+	 */
+	public function deleteBy(string $entity, array $criteria = []): int
+	{
+		$qb = $this->queryBuilderFactory->createDelete($entity, criteria: $criteria);
+
+		$result = $qb->getQuery()->execute();
+		assert(is_int($result));
+
+		/** @var int<0, max> */
+		return $result;
+	}
+
 }

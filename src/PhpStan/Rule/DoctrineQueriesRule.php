@@ -43,6 +43,7 @@ final readonly class DoctrineQueriesRule implements Rule
 		DoctrineQueries::class => [
 			'countBy' => [1 => 'criteria'],
 			'existsBy' => [1 => 'criteria'],
+			'deleteBy' => [1 => 'criteria'],
 		],
 	];
 

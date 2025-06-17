@@ -138,6 +138,26 @@ final readonly class SimplifiedQueryBuilderFactory
 	}
 
 	/**
+	 * Creates a query builder for deleting entities by criteria.
+	 * 
+	 * @param class-string $entity The entity class to delete from
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @return QueryBuilder Query builder configured for deletion
+	 */
+	public function createDelete(string $entity, array $criteria = []): QueryBuilder
+	{
+		$em = $this->managerRegistry->getManagerForClass($entity);
+		assert($em instanceof EntityManagerInterface);
+
+		$qb = $em->createQueryBuilder();
+		$qb->delete($entity, 'a');
+
+		$this->applyCriteria($qb, $criteria, 'a');
+
+		return $qb;
+	}
+
+	/**
 	 * Applies filtering criteria to a query builder.
 	 * 
 	 * @param QueryBuilder $qb The query builder to modify
