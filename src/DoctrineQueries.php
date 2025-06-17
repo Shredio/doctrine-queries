@@ -8,13 +8,29 @@ use Shredio\DoctrineQueries\Query\ObjectQueries;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
 
+/**
+ * Main entry point for simplified Doctrine queries.
+ * 
+ * Provides a simplified interface for common database operations with automatic
+ * query building and result handling. Offers three main query types: object,
+ * array, and scalar queries.
+ */
 final readonly class DoctrineQueries
 {
 
+	/**
+	 * Object-based queries that return entities as objects
+	 */
 	public ObjectQueries $objects;
 
+	/**
+	 * Array-based queries that return results as associative arrays
+	 */
 	public ArrayQueries $arrays;
 
+	/**
+	 * Scalar-based queries that return primitive values
+	 */
 	public ScalarQueries $scalars;
 
 	private SimplifiedQueryBuilderFactory $queryBuilderFactory;

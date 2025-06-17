@@ -6,12 +6,24 @@ use Doctrine\ORM\QueryBuilder;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
 
 /**
+ * Base class for all query executors.
+ * 
+ * Provides common functionality for different query types including helper
+ * methods for creating queries with various selection modes and criteria.
+ * 
  * @internal
  */
 abstract readonly class BaseQueries
 {
 
+	/**
+	 * Column alias for value collections
+	 */
 	protected const string ColumnValuesColumn = 'v';
+	
+	/**
+	 * Column alias for single value queries
+	 */
 	protected const string SingleColumnValueColumn = 'v';
 
 	public function __construct(
@@ -21,11 +33,17 @@ abstract readonly class BaseQueries
 	}
 
 	/**
+	 * Creates a query builder for finding entities with optional relation handling.
+	 *
 	 * @template T of object
-	 * @param class-string<T> $entity
-	 * @param array<string, mixed> $criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy
-	 * @param string[] $select
+	 * @param class-string<T> $entity The entity class to query
+	 * @param array<string, mixed> $criteria Filtering criteria.
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters Examples:
+	 *   - ['name' => 'ASC'] - sort by name ascending
+	 *   - ['createdAt' => 'DESC'] - sort by creation date descending
+	 * @param string[] $select Fields to select
+	 * @param bool|null $withRelations Whether to include relations (null for default)
+	 * @return QueryBuilder Configured query builder
 	 */
 	protected function createFindBy(
 		string $entity,
@@ -44,10 +62,15 @@ abstract readonly class BaseQueries
 	}
 
 	/**
+	 * Creates a query builder for finding key-value pairs from entities.
+	 * 
 	 * @template T of object
-	 * @param class-string<T> $entity
-	 * @param array<string, mixed> $criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy
+	 * @param class-string<T> $entity The entity class to query
+	 * @param string $key The field to use as keys
+	 * @param string $value The field to use as values
+	 * @param array<string, mixed> $criteria Filtering criteria.
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @return QueryBuilder Configured query builder for pairs
 	 */
 	protected function createFindPairsBy(string $entity, string $key, string $value, array $criteria = [], array $orderBy = []): QueryBuilder
 	{
@@ -55,14 +78,15 @@ abstract readonly class BaseQueries
 	}
 
 	/**
-	 * Fetches a specific field from the database based on the given entity, field, and criteria.
+	 * Creates a query builder for fetching multiple values from a specific field.
 	 *
 	 * @template T of object
-	 * @param class-string<T> $entity The class of the entity to fetch the field from.
-	 * @param string $field The specific field to retrieve from the entity.
-	 * @param array<string, mixed> $criteria Optional criteria to filter the query.
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Optional ordering of the results.
-	 * @param bool $distinct Whether to return distinct values. USE as a named argument.
+	 * @param class-string<T> $entity The entity class to query
+	 * @param string $field The field to retrieve values from
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param bool $distinct Whether to return distinct values
+	 * @return QueryBuilder Configured query builder for column values
 	 */
 	protected function createFindColumnValues(string $entity, string $field, array $criteria = [], array $orderBy = [], bool $distinct = false): QueryBuilder
 	{
@@ -70,12 +94,13 @@ abstract readonly class BaseQueries
 	}
 
 	/**
-	 * Fetches a specific field from the database based on the given entity, field, and criteria.
+	 * Creates a query builder for fetching a single value from a specific field.
 	 *
 	 * @template T of object
-	 * @param class-string<T> $entity The class of the entity to fetch the field from.
-	 * @param string $field The specific field to retrieve from the entity.
-	 * @param array<string, mixed> $criteria Criteria to filter the query.
+	 * @param class-string<T> $entity The entity class to query
+	 * @param string $field The field to retrieve a value from
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @return QueryBuilder Configured query builder for single value (limited to 1 result)
 	 */
 	protected function createFindSingleColumnValue(string $entity, string $field, array $criteria): QueryBuilder
 	{

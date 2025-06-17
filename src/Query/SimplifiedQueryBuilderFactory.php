@@ -10,6 +10,11 @@ use Shredio\DoctrineQueries\Criteria\CriteriaParser;
 use Shredio\DoctrineQueries\Select\SelectParser;
 
 /**
+ * Factory for creating simplified Doctrine query builders.
+ * 
+ * Provides a high-level interface for creating QueryBuilder instances with
+ * automatic criteria parsing, select field handling, and relation management.
+ * 
  * @internal
  */
 final readonly class SimplifiedQueryBuilderFactory
@@ -22,20 +27,34 @@ final readonly class SimplifiedQueryBuilderFactory
 	{
 	}
 
+	/**
+	 * Creates a new factory instance with a different select parser.
+	 * 
+	 * @param SelectParser $selectParser The new select parser to use
+	 * @return self New factory instance
+	 */
 	public function withSelectParser(SelectParser $selectParser): self
 	{
 		return new self($this->managerRegistry, $selectParser);
 	}
 
+	/**
+	 * Creates a new factory instance with relation handling configuration.
+	 * 
+	 * @param bool $withRelations Whether to include relations in queries
+	 * @return self New factory instance
+	 */
 	public function withRelations(bool $withRelations): self
 	{
 		return new self($this->managerRegistry, $this->selectParser->withRequireRelations($withRelations));
 	}
 
 	/**
+	 * Gets the metadata for a given entity class.
+	 * 
 	 * @template T of object
-	 * @param class-string<T> $entity
-	 * @return ClassMetadata<T>
+	 * @param class-string<T> $entity The entity class
+	 * @return ClassMetadata<T> The entity metadata
 	 */
 	public function getMetadata(string $entity): ClassMetadata
 	{
@@ -47,11 +66,15 @@ final readonly class SimplifiedQueryBuilderFactory
 
 
 	/**
+	 * Creates a query builder for the given entity with select, criteria, and ordering.
+	 * 
 	 * @template T of object
-	 * @param class-string<T> $entity
-	 * @param array<string, mixed> $criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy
-	 * @param string[] $select
+	 * @param class-string<T> $entity The entity class to query
+	 * @param string[] $select Fields to select (empty for all fields)
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param bool $distinct Whether to return distinct results
+	 * @return QueryBuilder Configured query builder
 	 */
 	public function create(string $entity, array $select = [], array $criteria = [], array $orderBy = [], bool $distinct = false): QueryBuilder
 	{
@@ -85,8 +108,11 @@ final readonly class SimplifiedQueryBuilderFactory
 	}
 
 	/**
-	 * @param class-string $entity
-	 * @param array<string, mixed> $criteria
+	 * Creates a query builder for counting entities by criteria.
+	 * 
+	 * @param class-string $entity The entity class to count
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @return QueryBuilder Query builder configured for counting
 	 */
 	public function createCount(string $entity, array $criteria = []): QueryBuilder
 	{
@@ -112,7 +138,11 @@ final readonly class SimplifiedQueryBuilderFactory
 	}
 
 	/**
-	 * @param array<string, mixed> $criteria
+	 * Applies filtering criteria to a query builder.
+	 * 
+	 * @param QueryBuilder $qb The query builder to modify
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param string $alias The alias to use for the entity
 	 */
 	private function applyCriteria(QueryBuilder $qb, array $criteria, string $alias): void
 	{
@@ -126,8 +156,10 @@ final readonly class SimplifiedQueryBuilderFactory
 	}
 
 	/**
-	 * @param QueryBuilder $qb
-	 * @param array<string, 'ASC'|'DESC'> $orderBy
+	 * Applies ordering parameters to a query builder.
+	 * 
+	 * @param QueryBuilder $qb The query builder to modify
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
 	 */
 	private function applyOrderBy(QueryBuilder $qb, array $orderBy): void
 	{

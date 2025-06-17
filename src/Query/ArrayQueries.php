@@ -9,20 +9,53 @@ use Shredio\DoctrineQueries\Result\DatabasePairs;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
 
 /**
+ * Query executor for returning results as associative arrays.
+ * 
+ * Provides database query functionality that returns results as associative arrays
+ * using Doctrine's array hydration mode. This is useful when you don't need
+ * full entity objects and want faster hydration performance.
+ *
+ * Criteria examples:
+ *    - ['id' => 1] - equals
+ *    - ['name !=' => 'John'] - not equals
+ *    - ['age >' => 18] - greater than
+ *    - ['age >=' => 18] - greater than or equal
+ *    - ['name LIKE' => '%john%'] - pattern matching
+ *    - ['name NOT LIKE' => '%admin%'] - negative pattern matching
+ *    - ['status' => null] - IS NULL
+ *    - ['status !=' => null] - IS NOT NULL
+ *    - ['id' => [1, 2, 3]] - IN clause
+ *    - ['id !=' => [1, 2, 3]] - NOT IN clause
+ *    - ['id >' => 1, 'status' => 'active'] - multiple criteria (AND)
+ *    - etc.
+ *
+ * Sorting examples:
+ *    - ['name' => 'ASC'] - sort by name ascending
+ *    - ['createdAt' => 'DESC'] - sort by creation date descending
+ *
+ * Select examples:
+ *   - ['id', 'name'] - select only id and name fields
+ *   - ['name' => 'personName'] - select the name field and alias it as personName
+ *
  * @internal
  * @phpstan-type ValueType mixed
  */
 final readonly class ArrayQueries extends BaseQueries
 {
 
+	/**
+	 * Hydration mode constant for array results
+	 */
 	private const int HydrationMode = AbstractQuery::HYDRATE_ARRAY;
 
 	/**
-	 * @param class-string $entity
-	 * @param array<string, mixed> $criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy
-	 * @param string[] $select
-	 * @return DatabaseResults<array<string, ValueType>>
+	 * Finds entities by criteria and returns them as associative arrays.
+	 * 
+	 * @param class-string $entity The entity class to query
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param string[] $select Fields to select
+	 * @return DatabaseResults<array<string, ValueType>> Collection of array results
 	 */
 	public function findBy(string $entity, array $criteria = [], array $orderBy = [], array $select = []): DatabaseResults
 	{
@@ -33,11 +66,13 @@ final readonly class ArrayQueries extends BaseQueries
 	}
 
 	/**
-	 * @param class-string $entity
-	 * @param array<string, mixed> $criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy
-	 * @param string[] $select
-	 * @return DatabaseResults<array<string, ValueType>>
+	 * Finds entities by criteria including relations and returns them as arrays.
+	 * 
+	 * @param class-string $entity The entity class to query
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param string[] $select Fields to select
+	 * @return DatabaseResults<array<string, ValueType>> Collection of array results
 	 */
 	public function findByWithRelations(string $entity, array $criteria = [], array $orderBy = [], array $select = []): DatabaseResults
 	{
@@ -48,10 +83,14 @@ final readonly class ArrayQueries extends BaseQueries
 	}
 
 	/**
-	 * @param class-string $entity
-	 * @param array<string, mixed> $criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy
-	 * @return DatabasePairs<array-key, ValueType>
+	 * Finds key-value pairs from entities and returns them as arrays.
+	 * 
+	 * @param class-string $entity The entity class to query
+	 * @param string $key The field to use as keys
+	 * @param string $value The field to use as values
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @return DatabasePairs<array-key, ValueType> Key-value pairs collection
 	 */
 	public function findPairsBy(string $entity, string $key, string $value, array $criteria = [], array $orderBy = []): DatabasePairs
 	{
