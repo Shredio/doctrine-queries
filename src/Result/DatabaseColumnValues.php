@@ -50,7 +50,7 @@ final readonly class DatabaseColumnValues
 	}
 
 	/**
-	 * @return iterable<TValue>
+	 * @return iterable<int, TValue>
 	 */
 	public function yield(): iterable
 	{
