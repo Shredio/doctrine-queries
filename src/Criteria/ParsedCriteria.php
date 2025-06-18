@@ -2,11 +2,14 @@
 
 namespace Shredio\DoctrineQueries\Criteria;
 
+use Shredio\DoctrineQueries\Field\FieldPath;
+use Shredio\DoctrineQueries\Field\MappedFieldPath;
+
 final readonly class ParsedCriteria
 {
 
 	public function __construct(
-		public string $field,
+		public FieldPath $field,
 		public string $operator,
 		public ?string $operand,
 		public ?string $parameterName,
@@ -15,13 +18,13 @@ final readonly class ParsedCriteria
 	{
 	}
 
-	public function getExpression(): string
+	public function getExpression(MappedFieldPath $mappedField): string
 	{
 		if ($this->operand !== null) {
-			return sprintf('%s %s %s', $this->field, $this->operator, $this->operand);
+			return sprintf('%s %s %s', $mappedField->path, $this->operator, $this->operand);
 		}
 
-		return sprintf('%s %s', $this->field, $this->operator);
+		return sprintf('%s %s', $mappedField->path, $this->operator);
 	}
 
 }

@@ -4,6 +4,7 @@ namespace Shredio\DoctrineQueries\Query;
 
 use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\Query;
+use Shredio\DoctrineQueries\Hydration\HydrationType;
 use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
@@ -47,6 +48,11 @@ final readonly class ArrayQueries extends BaseQueries
 	 * Hydration mode constant for array results
 	 */
 	private const int HydrationMode = AbstractQuery::HYDRATE_ARRAY;
+
+	protected function getHydrationType(): HydrationType
+	{
+		return HydrationType::Array;
+	}
 
 	/**
 	 * Finds entities by criteria and returns them as associative arrays.

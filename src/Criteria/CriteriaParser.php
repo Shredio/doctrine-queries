@@ -3,6 +3,7 @@
 namespace Shredio\DoctrineQueries\Criteria;
 
 use InvalidArgumentException;
+use Shredio\DoctrineQueries\Field\FieldPath;
 
 /**
  * @internal
@@ -28,7 +29,7 @@ final readonly class CriteriaParser
 				throw new InvalidArgumentException('Field cannot be empty');
 			}
 
-			[$field, $operator] = self::parseOperator($field);
+			[$field, $operator] = self::parseOperatorWithField($field);
 			$operand = '%s';
 
 			if (is_iterable($value)) {
@@ -65,7 +66,7 @@ final readonly class CriteriaParser
 			}
 
 			yield new ParsedCriteria(
-				$field,
+				FieldPath::createFromString($field),
 				$operator,
 				$operand,
 				$param,
@@ -77,7 +78,7 @@ final readonly class CriteriaParser
 	/**
 	 * @return array{string, string}
 	 */
-	private static function parseOperator(string $field): array
+	public static function parseOperatorWithField(string $field): array
 	{
 		if (($pos = strpos($field, ' ')) !== false) {
 			return [substr($field, 0, $pos), substr($field, $pos + 1)];

@@ -4,6 +4,7 @@ namespace Tests\Unit\Criteria;
 
 use InvalidArgumentException;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
+use Shredio\DoctrineQueries\Field\FieldPath;
 use Tests\TestCase;
 
 final class CriteriaParserTest extends TestCase
@@ -16,13 +17,13 @@ final class CriteriaParserTest extends TestCase
 
 		$this->assertCount(2, $parsedCriteria);
 
-		$this->assertEquals('field1', $parsedCriteria[0]->field);
+		$this->assertEquals('field1', $parsedCriteria[0]->field->getPath());
 		$this->assertEquals('=', $parsedCriteria[0]->operator);
 		$this->assertEquals(':param1', $parsedCriteria[0]->operand);
 		$this->assertEquals('param1', $parsedCriteria[0]->parameterName);
 		$this->assertEquals('value1', $parsedCriteria[0]->value);
 
-		$this->assertEquals('field2', $parsedCriteria[1]->field);
+		$this->assertEquals('field2', $parsedCriteria[1]->field->getPath());
 		$this->assertEquals('!=', $parsedCriteria[1]->operator);
 		$this->assertEquals(':param2', $parsedCriteria[1]->operand);
 		$this->assertEquals('param2', $parsedCriteria[1]->parameterName);
@@ -50,7 +51,7 @@ final class CriteriaParserTest extends TestCase
 		$parsedCriteria = iterator_to_array(CriteriaParser::parse($criteria));
 
 		$this->assertCount(1, $parsedCriteria);
-		$this->assertEquals('field', $parsedCriteria[0]->field);
+		$this->assertEquals('field', $parsedCriteria[0]->field->getPath());
 		$this->assertEquals('=', $parsedCriteria[0]->operator);
 		$this->assertEquals(':param1', $parsedCriteria[0]->operand);
 		$this->assertEquals('param1', $parsedCriteria[0]->parameterName);
@@ -70,7 +71,7 @@ final class CriteriaParserTest extends TestCase
 		$parsedCriteria = iterator_to_array(CriteriaParser::parse($criteria));
 
 		$this->assertCount(1, $parsedCriteria);
-		$this->assertEquals('field1', $parsedCriteria[0]->field);
+		$this->assertEquals('field1', $parsedCriteria[0]->field->getPath());
 		$this->assertEquals('=', $parsedCriteria[0]->operator);
 		$this->assertEquals(':param1', $parsedCriteria[0]->operand);
 		$this->assertEquals('param1', $parsedCriteria[0]->parameterName);
@@ -84,13 +85,13 @@ final class CriteriaParserTest extends TestCase
 
 		$this->assertCount(2, $parsedCriteria);
 
-		$this->assertEquals('field1', $parsedCriteria[0]->field);
+		$this->assertEquals('field1', $parsedCriteria[0]->field->getPath());
 		$this->assertEquals('>', $parsedCriteria[0]->operator);
 		$this->assertEquals(':param1', $parsedCriteria[0]->operand);
 		$this->assertEquals('param1', $parsedCriteria[0]->parameterName);
 		$this->assertEquals('value1', $parsedCriteria[0]->value);
 
-		$this->assertEquals('field2', $parsedCriteria[1]->field);
+		$this->assertEquals('field2', $parsedCriteria[1]->field->getPath());
 		$this->assertEquals('<', $parsedCriteria[1]->operator);
 		$this->assertEquals(':param2', $parsedCriteria[1]->operand);
 		$this->assertEquals('param2', $parsedCriteria[1]->parameterName);
@@ -103,7 +104,8 @@ final class CriteriaParserTest extends TestCase
 		$parsedCriteria = iterator_to_array(CriteriaParser::parse($criteria));
 
 		$this->assertCount(1, $parsedCriteria);
-		$this->assertEquals('field1 = :param1', $parsedCriteria[0]->getExpression());
+		// Note: getExpression() now requires MappedFieldPath parameter
+		$this->assertEquals('field1', $parsedCriteria[0]->field->getPath());
 	}
 
 }

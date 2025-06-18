@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries\Query;
 
+use Shredio\DoctrineQueries\Hydration\HydrationType;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
 use Doctrine\ORM\Query;
 
@@ -37,6 +38,11 @@ use Doctrine\ORM\Query;
  */
 final readonly class ObjectQueries extends BaseQueries
 {
+
+	protected function getHydrationType(): HydrationType
+	{
+		return HydrationType::Object;
+	}
 
 	/**
 	 * Finds entities by criteria and returns them as objects.

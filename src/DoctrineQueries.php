@@ -3,6 +3,7 @@
 namespace Shredio\DoctrineQueries;
 
 use Doctrine\Persistence\ManagerRegistry;
+use Shredio\DoctrineQueries\Hydration\HydrationType;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Shredio\DoctrineQueries\Query\ObjectQueries;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
@@ -54,7 +55,7 @@ final readonly class DoctrineQueries
 	 */
 	public function existsBy(string $entity, array $criteria): bool
 	{
-		$qb = $this->queryBuilderFactory->create($entity, criteria: $criteria);
+		$qb = $this->queryBuilderFactory->create($entity, HydrationType::Scalar, criteria: $criteria);
 		$qb->select('1');
 		$qb->setMaxResults(1);
 

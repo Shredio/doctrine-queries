@@ -3,6 +3,7 @@
 namespace Shredio\DoctrineQueries\Query;
 
 use Doctrine\ORM\QueryBuilder;
+use Shredio\DoctrineQueries\Hydration\HydrationType;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
 
 /**
@@ -32,6 +33,8 @@ abstract readonly class BaseQueries
 	{
 	}
 
+	abstract protected function getHydrationType(): HydrationType;
+
 	/**
 	 * Creates a query builder for finding entities with optional relation handling.
 	 *
@@ -53,12 +56,7 @@ abstract readonly class BaseQueries
 		?bool $withRelations = null,
 	): QueryBuilder
 	{
-		$qbf = $this->queryBuilderFactory;
-		if ($withRelations !== null) {
-			$qbf = $this->queryBuilderFactory->withRelations($withRelations);
-		}
-
-		return $qbf->create($entity, $select, $criteria, $orderBy);
+		return $this->queryBuilderFactory->create($entity, $this->getHydrationType(), $select, $criteria, $orderBy, withRelations: $withRelations);
 	}
 
 	/**
@@ -74,7 +72,7 @@ abstract readonly class BaseQueries
 	 */
 	protected function createFindPairsBy(string $entity, string $key, string $value, array $criteria = [], array $orderBy = []): QueryBuilder
 	{
-		return $this->queryBuilderFactory->create($entity, [$key => DatabasePairs::KeyColumn, $value => DatabasePairs::ValueColumn], $criteria, $orderBy);
+		return $this->queryBuilderFactory->create($entity, $this->getHydrationType(), [$key => DatabasePairs::KeyColumn, $value => DatabasePairs::ValueColumn], $criteria, $orderBy);
 	}
 
 	/**
@@ -90,7 +88,7 @@ abstract readonly class BaseQueries
 	 */
 	protected function createFindColumnValues(string $entity, string $field, array $criteria = [], array $orderBy = [], bool $distinct = false): QueryBuilder
 	{
-		return $this->queryBuilderFactory->create($entity, [$field => self::ColumnValuesColumn], $criteria, $orderBy, $distinct);
+		return $this->queryBuilderFactory->create($entity, $this->getHydrationType(), [$field => self::ColumnValuesColumn], $criteria, $orderBy, $distinct);
 	}
 
 	/**
@@ -104,7 +102,7 @@ abstract readonly class BaseQueries
 	 */
 	protected function createFindSingleColumnValue(string $entity, string $field, array $criteria): QueryBuilder
 	{
-		return $this->queryBuilderFactory->create($entity, [$field => self::SingleColumnValueColumn], $criteria)->setMaxResults(1);
+		return $this->queryBuilderFactory->create($entity, $this->getHydrationType(), [$field => self::SingleColumnValueColumn], $criteria)->setMaxResults(1);
 	}
 
 }

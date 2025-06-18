@@ -2,36 +2,22 @@
 
 namespace Shredio\DoctrineQueries\Select;
 
-use Doctrine\ORM\Mapping\ClassMetadata;
-use Doctrine\ORM\Mapping\ManyToOneAssociationMapping;
 use InvalidArgumentException;
+use Shredio\DoctrineQueries\Field\EntityMetadata;
+use Shredio\DoctrineQueries\Field\FieldPath;
+use Shredio\DoctrineQueries\Field\MappedFieldPath;
+use Shredio\DoctrineQueries\Hydration\HydrationType;
 
 final readonly class SelectParser
 {
 
-	public function __construct(
-		private bool $requireAliases = false,
-		private bool $requireRelations = false,
-	)
-	{
-	}
-
-	public function withRequireAliases(bool $requireAliases): self
-	{
-		return new self($requireAliases, $this->requireRelations);
-	}
-
-	public function withRequireRelations(bool $requireRelations): self
-	{
-		return new self($this->requireAliases, $requireRelations);
-	}
 
 	/**
-	 * @param ClassMetadata<object> $metadata
+	 * @param EntityMetadata<object> $metadata
 	 * @param string[] $fields
 	 * @return list<string>
 	 */
-	public function getFromSelect(ClassMetadata $metadata, array $fields, string $entityAlias): array
+	public function getFromSelect(EntityMetadata $metadata, array $fields, HydrationType $hydrationType): array
 	{
 		$return = [];
 		$unique = [];
@@ -39,62 +25,56 @@ final readonly class SelectParser
 		foreach ($fields as $field => $alias) {
 			if (is_int($field)) {
 				$field = $alias;
-				$useAlias = $this->requireAliases;
-			} else {
-				$useAlias = true;
 			}
 
-			$assoc = $metadata->hasAssociation($alias);
+			$field = $metadata->createField(FieldPath::createFromString($field));
 
 			if (isset($unique[$alias])) {
 				throw new InvalidArgumentException(sprintf('Column "%s" is already selected. Please use unique column names.', $alias));
 			}
 
 			$unique[$alias] = true;
-
-			if ($assoc) {
-				$return[] = sprintf('IDENTITY(%s.%s) AS %s', $entityAlias, $field, $alias);
-			} else if ($useAlias) {
-				$return[] = sprintf('%s.%s AS %s', $entityAlias, $field, $alias);
-			} else {
-				$return[] = sprintf('%s.%s', $entityAlias, $field);
-			}
+			$return[] = $this->createSelect($field, $alias, $hydrationType);
 		}
 
 		return $return;
 	}
 
 	/**
-	 * @param ClassMetadata<object> $metadata
+	 * @param EntityMetadata<object> $metadata
 	 * @return list<string>
 	 */
-	public function getForAll(ClassMetadata $metadata, string $entityAlias): array
+	public function getForAll(EntityMetadata $metadata, HydrationType $hydrationType, bool $withRelations = false): array
 	{
-		if (!$this->requireAliases && !$this->requireRelations) {
-			return [$entityAlias];
+		if ($hydrationType === HydrationType::Object) {
+			return [$metadata->alias];
+		}
+
+		if (!$withRelations && $hydrationType !== HydrationType::Scalar) {
+			return [$metadata->alias];
 		}
 
 		$return = [];
 
-		foreach ($metadata->getFieldNames() as $field) {
-			if ($this->requireAliases) {
-				$return[] = sprintf('%s.%s AS %s', $entityAlias, $field, $field);
-			} else {
-				$return[] = sprintf('%s.%s', $entityAlias, $field);
-			}
-		}
-
-		if ($this->requireRelations) {
-			foreach ($metadata->getAssociationMappings() as $mapping) {
-				if (!$mapping instanceof ManyToOneAssociationMapping) {
-					continue;
-				}
-
-				$return[] = sprintf('IDENTITY(%s.%s) AS %s', $entityAlias, $mapping->fieldName, $mapping->fieldName);
-			}
+		foreach ($metadata->getSelectableFields($withRelations) as $field) {
+			$return[] = $this->createSelect($field, $field->name, $hydrationType);
 		}
 
 		return $return;
 	}
-	
+
+	private function createSelect(MappedFieldPath $field, string $alias, HydrationType $hydrationType): string
+	{
+		if ($field->isRelation && $hydrationType !== HydrationType::Object) {
+			return sprintf('IDENTITY(%s) AS %s', $field->path, $alias);
+		}
+
+		$requireAliases = $hydrationType === HydrationType::Scalar;
+		if ($requireAliases || $alias !== $field->name) {
+			return sprintf('%s AS %s', $field->path, $alias);
+		}
+
+		return $field->path;
+	}
+
 }

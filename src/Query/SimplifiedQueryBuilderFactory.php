@@ -3,10 +3,12 @@
 namespace Shredio\DoctrineQueries\Query;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
+use Shredio\DoctrineQueries\Field\EntityMetadata;
+use Shredio\DoctrineQueries\Field\FieldPath;
+use Shredio\DoctrineQueries\Hydration\HydrationType;
 use Shredio\DoctrineQueries\Select\SelectParser;
 
 /**
@@ -27,43 +29,6 @@ final readonly class SimplifiedQueryBuilderFactory
 	{
 	}
 
-	/**
-	 * Creates a new factory instance with a different select parser.
-	 * 
-	 * @param SelectParser $selectParser The new select parser to use
-	 * @return self New factory instance
-	 */
-	public function withSelectParser(SelectParser $selectParser): self
-	{
-		return new self($this->managerRegistry, $selectParser);
-	}
-
-	/**
-	 * Creates a new factory instance with relation handling configuration.
-	 * 
-	 * @param bool $withRelations Whether to include relations in queries
-	 * @return self New factory instance
-	 */
-	public function withRelations(bool $withRelations): self
-	{
-		return new self($this->managerRegistry, $this->selectParser->withRequireRelations($withRelations));
-	}
-
-	/**
-	 * Gets the metadata for a given entity class.
-	 * 
-	 * @template T of object
-	 * @param class-string<T> $entity The entity class
-	 * @return ClassMetadata<T> The entity metadata
-	 */
-	public function getMetadata(string $entity): ClassMetadata
-	{
-		$em = $this->managerRegistry->getManagerForClass($entity);
-		assert($em instanceof EntityManagerInterface);
-
-		return $em->getClassMetadata($entity);
-	}
-
 
 	/**
 	 * Creates a query builder for the given entity with select, criteria, and ordering.
@@ -76,20 +41,34 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * @param bool $distinct Whether to return distinct results
 	 * @return QueryBuilder Configured query builder
 	 */
-	public function create(string $entity, array $select = [], array $criteria = [], array $orderBy = [], bool $distinct = false): QueryBuilder
+	public function create(
+		string $entity,
+		HydrationType $hydrationType,
+		array $select = [],
+		array $criteria = [],
+		array $orderBy = [],
+		bool $distinct = false,
+		?bool $withRelations = null,
+	): QueryBuilder
 	{
 		$em = $this->managerRegistry->getManagerForClass($entity);
 		assert($em instanceof EntityManagerInterface);
 
-		$metadata = $em->getClassMetadata($entity);
+		$entityMetadata = new EntityMetadata($this->managerRegistry, $entity);
 
 		$qb = $em->createQueryBuilder();
-		$qb->from($entity, 'a');
+		$qb->from($entityMetadata->entity, $entityMetadata->alias);
 
 		if ($select) {
-			$qb->select($this->selectParser->getFromSelect($metadata, $select, 'a'));
+			$qb->select($this->selectParser->getFromSelect($entityMetadata, $select, $hydrationType));
 		} else {
-			$qb->select($this->selectParser->getForAll($metadata, 'a'));
+			$qb->select(
+				$this->selectParser->getForAll(
+					$entityMetadata,
+					$hydrationType,
+					$withRelations ?? $hydrationType->getDefaultValueForWithRelations(),
+				),
+			);
 		}
 
 		if ($distinct) {
@@ -97,11 +76,11 @@ final readonly class SimplifiedQueryBuilderFactory
 		}
 
 		if ($criteria) {
-			$this->applyCriteria($qb, $criteria, 'a');
+			$this->applyCriteria($qb, $criteria, $entityMetadata);
 		}
 
 		if ($orderBy) {
-			$this->applyOrderBy($qb, $orderBy);
+			$this->applyOrderBy($qb, $orderBy, $entityMetadata);
 		}
 
 		return $qb;
@@ -119,20 +98,19 @@ final readonly class SimplifiedQueryBuilderFactory
 		$em = $this->managerRegistry->getManagerForClass($entity);
 		assert($em instanceof EntityManagerInterface);
 
-		$metadata = $em->getClassMetadata($entity);
+		$entityMetadata = new EntityMetadata($this->managerRegistry, $entity);
 
 		$qb = $em->createQueryBuilder();
-		$qb->from($entity, 'a');
+		$qb->from($entityMetadata->entity, $entityMetadata->alias);
 
-		$fieldNames = $metadata->getIdentifierFieldNames();
-
-		if (count($fieldNames) === 1) {
-			$qb->select(sprintf('COUNT(a.%s)', $fieldNames[0]));
+		$primaryField = $entityMetadata->getSingleFieldName();
+		if ($primaryField !== null) {
+			$qb->select(sprintf('COUNT(%s.%s)', $entityMetadata->alias, $primaryField));
 		} else {
-			$qb->select('COUNT(a)');
+			$qb->select(sprintf('COUNT(%s)', $entityMetadata->alias));
 		}
 
-		$this->applyCriteria($qb, $criteria, 'a');
+		$this->applyCriteria($qb, $criteria, $entityMetadata);
 
 		return $qb;
 	}
@@ -149,10 +127,12 @@ final readonly class SimplifiedQueryBuilderFactory
 		$em = $this->managerRegistry->getManagerForClass($entity);
 		assert($em instanceof EntityManagerInterface);
 
-		$qb = $em->createQueryBuilder();
-		$qb->delete($entity, 'a');
+		$entityMetadata = new EntityMetadata($this->managerRegistry, $entity);
 
-		$this->applyCriteria($qb, $criteria, 'a');
+		$qb = $em->createQueryBuilder();
+		$qb->delete($entityMetadata->entity, $entityMetadata->alias);
+
+		$this->applyCriteria($qb, $criteria, $entityMetadata);
 
 		return $qb;
 	}
@@ -162,12 +142,12 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * 
 	 * @param QueryBuilder $qb The query builder to modify
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param string $alias The alias to use for the entity
+	 * @param EntityMetadata<object> $metadata Metadata for the entity
 	 */
-	private function applyCriteria(QueryBuilder $qb, array $criteria, string $alias): void
+	private function applyCriteria(QueryBuilder $qb, array $criteria, EntityMetadata $metadata): void
 	{
 		foreach (CriteriaParser::parse($criteria) as $parsed) {
-			$qb->andWhere($alias . '.' . $parsed->getExpression());
+			$qb->andWhere($parsed->getExpression($metadata->createField($parsed->field)));
 
 			if ($parsed->parameterName) {
 				$qb->setParameter($parsed->parameterName, $parsed->value);
@@ -180,11 +160,14 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * 
 	 * @param QueryBuilder $qb The query builder to modify
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param EntityMetadata<object> $metadata Metadata for the entity
 	 */
-	private function applyOrderBy(QueryBuilder $qb, array $orderBy): void
+	private function applyOrderBy(QueryBuilder $qb, array $orderBy, EntityMetadata $metadata): void
 	{
 		foreach ($orderBy as $field => $direction) {
-			$qb->addOrderBy(sprintf('a.%s', $field), $direction);
+			$field = $metadata->createField(FieldPath::createFromString($field));
+
+			$qb->addOrderBy($field->path, $direction);
 		}
 	}
 

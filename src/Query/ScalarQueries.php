@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries\Query;
 
+use Shredio\DoctrineQueries\Hydration\HydrationType;
 use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
@@ -48,9 +49,9 @@ final readonly class ScalarQueries extends BaseQueries
 	 */
 	private const int HydrationMode = AbstractQuery::HYDRATE_SCALAR;
 
-	public function __construct(SimplifiedQueryBuilderFactory $queryBuilderFactory)
+	protected function getHydrationType(): HydrationType
 	{
-		parent::__construct($queryBuilderFactory->withSelectParser(new SelectParser(true)));
+		return HydrationType::Scalar;
 	}
 
 	/**
