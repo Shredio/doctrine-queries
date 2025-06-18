@@ -1,6 +1,6 @@
 <?php declare(strict_types = 1);
 
-namespace Entity;
+namespace Tests\Entity;
 
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;

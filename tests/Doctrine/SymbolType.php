@@ -4,6 +4,7 @@ namespace Tests\Doctrine;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\StringType;
+use LogicException;
 
 final class SymbolType extends StringType
 {
@@ -17,22 +18,30 @@ final class SymbolType extends StringType
 		return parent::getSQLDeclaration($column, $platform);
 	}
 
-	public function convertToPHPValue($value, AbstractPlatform $platform): mixed
+	public function convertToPHPValue($value, AbstractPlatform $platform): ?Symbol
 	{
+		if ($value === null) {
+			return null;
+		}
+
 		if (is_string($value)) {
 			return new Symbol($value);
 		}
 
-		return parent::convertToPHPValue($value, $platform);
+		throw new LogicException('Not supported.');
 	}
 
-	public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
+	public function convertToDatabaseValue($value, AbstractPlatform $platform): ?string
 	{
+		if ($value === null) {
+			return null;
+		}
+
 		if ($value instanceof Symbol) {
 			return $value->value;
 		}
 
-		return parent::convertToDatabaseValue($value, $platform);
+		throw new LogicException('Not supported.');
 	}
 
 	public function getName(): string

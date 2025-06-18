@@ -15,6 +15,7 @@ use Tests\Doctrine\SymbolType;
 use Tests\Doctrine\TestManagerRegistry;
 use Tests\Entity\Article;
 use Tests\Entity\Author;
+use Tests\Factory\EntityManagerFactory;
 
 trait DoctrineContext
 {
@@ -27,20 +28,7 @@ trait DoctrineContext
 			return $this->em;
 		}
 
-		if (!Type::hasType(SymbolType::Name)) {
-			Type::addType(SymbolType::Name, SymbolType::class);
-		}
-
-		$config = ORMSetup::createAttributeMetadataConfiguration([
-			__DIR__ . '/../Entity',
-		], true, cache: new ArrayAdapter());
-
-		$connection = DriverManager::getConnection([
-			'driver' => 'pdo_sqlite',
-			'path' => ':memory:',
-		], $config);
-
-		$this->em = $em = new EntityManager($connection, $config);
+		$this->em = $em = EntityManagerFactory::create();
 
 		if ($this->setUpDatabase()) {
 			$schemaTool = new SchemaTool($em);
