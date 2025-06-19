@@ -3,8 +3,10 @@
 namespace Shredio\DoctrineQueries;
 
 use Doctrine\Persistence\ManagerRegistry;
+use LogicException;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Shredio\DoctrineQueries\Query\ObjectQueries;
+use Shredio\DoctrineQueries\Query\RawQueryBuilder;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
 
@@ -92,6 +94,37 @@ final readonly class DoctrineQueries
 
 		/** @var int<0, max> */
 		return $result;
+	}
+
+	/**
+	 * @param class-string $entityForConnection
+	 */
+	public function createQueryFromFile(string $entityForConnection, string $filePath): RawQueryBuilder
+	{
+		return new RawQueryBuilder(
+			$this->readFile($filePath),
+			$this->queryBuilderFactory->getConnectionFor($entityForConnection),
+		);
+	}
+
+	private function readFile(string $filePath): string
+	{
+		if (!is_file($filePath)) {
+			throw new LogicException(sprintf(
+				"File '%s' does not exist or is not a file.",
+				$filePath,
+			));
+		}
+
+		$content = @file_get_contents($filePath); // @ is escalated to exception
+		if ($content === false) {
+			throw new LogicException(sprintf(
+				"Unable to read file '%s'.",
+				$filePath,
+			));
+		}
+
+		return $content;
 	}
 
 }

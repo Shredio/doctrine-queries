@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries\Query;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\QueryBuilder;
@@ -186,6 +187,21 @@ final readonly class SimplifiedQueryBuilderFactory
 		foreach ($orderBy as $field => $direction) {
 			$qb->addOrderBy(sprintf('a.%s', $field), $direction);
 		}
+	}
+
+	/**
+	 * Gets the database connection for a given entity class.
+	 *
+	 * @param class-string $entity The entity class to get the connection for
+	 * @return Connection The database connection for the entity
+	 */
+	public function getConnectionFor(string $entity): Connection
+	{
+		$em = $this->managerRegistry->getManagerForClass($entity);
+
+		assert($em instanceof EntityManagerInterface);
+
+		return $em->getConnection();
 	}
 
 }
