@@ -31,7 +31,7 @@ final class ArrayQueriesDynamicReturnTypeExtensionTest extends TypeInferenceTest
 	 */
 	public static function getAdditionalConfigFiles(): array
 	{
-		return [__DIR__ . '/phpstan.neon'];
+		return [__DIR__ . '/phpstan-return-types.neon'];
 	}
 
 }

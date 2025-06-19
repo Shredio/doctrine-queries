@@ -1,0 +1,21 @@
+services:
+	-
+		class: Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
+	-
+		class: Shredio\DoctrineQueries\PhpStan\Rule\DoctrineQueriesRule
+		arguments:
+			- @Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
+		tags:
+			- phpstan.rules.rule
+	-
+		factory: PHPStan\Type\Doctrine\Descriptors\ReflectionDescriptor('Tests\Doctrine\SymbolType')
+		tags:
+			- phpstan.doctrine.typeDescriptor
+
+includes:
+	- ../../vendor/phpstan/phpstan-doctrine/extension.neon
+
+parameters:
+	doctrine:
+		objectManagerLoader: Data/entity-manager.php
+		reportUnknownTypes: true
