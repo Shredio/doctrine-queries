@@ -9,6 +9,7 @@ use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 use PHPStan\Type\Doctrine\ObjectMetadataResolver;
+use PHPStan\Type\Type;
 use Shredio\DoctrineQueries\DoctrineQueries;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineService;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory;
@@ -133,6 +134,8 @@ final readonly class DoctrineQueriesRule implements Rule
 			}
 		}
 
+		$errors = [];
+
 		foreach ($rules as $argumentPos => $argumentName) {
 			$arg = $arguments[$argumentName] ?? $arguments[$argumentPos] ?? null;
 			if ($arg === null) {
@@ -142,19 +145,15 @@ final readonly class DoctrineQueriesRule implements Rule
 			$argType = $scope->getType($arg->value);
 
 			if ($argumentName === 'criteria') {
-				if (!$argType->isConstantArray()->yes()) {
-					return [
-						RuleErrorBuilder::message(
-							sprintf('Argument #%d must be a constant array representing criteria.', $argumentPos + 1),
-						)
-							->identifier('doctrineQueries.invalidCriteriaArgument')
-							->build(),
-					];
+				$constantArrayError = $this->validateConstantArray($argType, $argumentPos, 'criteria');
+				if ($constantArrayError !== null) {
+					$errors[] = $constantArrayError;
+					continue;
 				}
 
 				foreach ($this->service->getCriteriaFromType($argType) as $item) {
 					if (!$entityService->hasFieldOrAssociation($item->fieldName)) {
-						return $this->invalidFieldName('criteria', $calledOnClass, $methodName, $entityClassName, $item->fieldName);
+						$errors[] = $this->invalidFieldName('criteria', $calledOnClass, $methodName, $entityClassName, $item->fieldName);
 					}
 				}
 
@@ -162,9 +161,15 @@ final readonly class DoctrineQueriesRule implements Rule
 			}
 
 			if ($argumentName === 'orderBy') {
+				$constantArrayError = $this->validateConstantArray($argType, $argumentPos, 'orderBy');
+				if ($constantArrayError !== null) {
+					$errors[] = $constantArrayError;
+					continue;
+				}
+
 				foreach ($this->service->getFieldsFromOrderByType($argType) as $field) {
 					if (!$entityService->hasFieldOrAssociation($field)) {
-						return $this->invalidFieldName('orderBy', $calledOnClass, $methodName, $entityClassName, $field);
+						$errors[] = $this->invalidFieldName('orderBy', $calledOnClass, $methodName, $entityClassName, $field);
 					}
 				}
 
@@ -172,53 +177,68 @@ final readonly class DoctrineQueriesRule implements Rule
 			}
 
 			if ($argumentName === 'select') {
+				$constantArrayError = $this->validateConstantArray($argType, $argumentPos, 'select');
+				if ($constantArrayError !== null) {
+					$errors[] = $constantArrayError;
+					continue;
+				}
+
 				foreach ($this->service->getFieldsFromSelectArrayType($argType) as [$fieldName]) {
 					if (!$entityService->hasFieldOrAssociation($fieldName)) {
-						return $this->invalidFieldName('select', $calledOnClass, $methodName, $entityClassName, $fieldName);
+						$errors[] = $this->invalidFieldName('select', $calledOnClass, $methodName, $entityClassName, $fieldName);
 					}
 				}
- 			}
 
-			if ($argumentName === 'field') {
-				$fieldName = $this->service->tryGetSingleStringFromType($argType);
+				continue;
+			}
 
-				if ($fieldName === null) {
-					return [
-						RuleErrorBuilder::message(
-							sprintf('Argument #%d must be a constant string representing a field name.', $argumentPos + 1),
-						)
-							->identifier('doctrineQueries.invalidFieldArgument')
-							->build(),
-					];
-				}
+			// 'field'
+			$fieldName = $this->service->tryGetSingleStringFromType($argType);
 
-				if (!$entityService->hasFieldOrAssociation($fieldName)) {
-					return $this->invalidFieldName('field', $calledOnClass, $methodName, $entityClassName, $fieldName);
-				}
+			if ($fieldName === null) {
+				$errors[] = RuleErrorBuilder::message(
+					sprintf('Argument #%d must be a constant string representing a field name.', $argumentPos + 1),
+				)
+					->identifier('doctrineQueries.invalidFieldArgument')
+					->build();
+
+				continue;
+			}
+
+			if (!$entityService->hasFieldOrAssociation($fieldName)) {
+				$errors[] = $this->invalidFieldName('field', $calledOnClass, $methodName, $entityClassName, $fieldName);
 			}
 		}
 
-		return [];
+		return $errors;
 	}
 
-	/**
-	 * @return list<IdentifierRuleError>
-	 */
-	private function invalidFieldName(string $type, string $calledOnClass, string $methodName, string $entityClassName, string $fieldName): array
+	private function validateConstantArray(Type $argType, int $argumentPos, string $argumentName): ?IdentifierRuleError
 	{
-		return [
-			RuleErrorBuilder::message(
-				sprintf(
-					'Call to method %s::%s() - entity %s does not have a field or association named `$%s`.',
-					$calledOnClass,
-					$methodName,
-					$entityClassName,
-					$fieldName,
-				),
+		if (!$argType->isConstantArray()->yes()) {
+			return RuleErrorBuilder::message(
+				sprintf('Argument #%d must be a constant array representing %s.', $argumentPos + 1, $argumentName),
 			)
-				->identifier(sprintf('doctrineQueries.invalid%sField', ucfirst($type)))
-				->build(),
-		];
+				->identifier(sprintf('doctrineQueries.invalid%sArgument', ucfirst($argumentName)))
+				->build();
+		}
+
+		return null;
+	}
+
+	private function invalidFieldName(string $type, string $calledOnClass, string $methodName, string $entityClassName, string $fieldName): IdentifierRuleError
+	{
+		return RuleErrorBuilder::message(
+			sprintf(
+				'Call to method %s::%s() - entity %s does not have a field or association named `$%s`.',
+				$calledOnClass,
+				$methodName,
+				$entityClassName,
+				$fieldName,
+			),
+		)
+			->identifier(sprintf('doctrineQueries.invalid%sField', ucfirst($type)))
+			->build();
 	}
 
 }
