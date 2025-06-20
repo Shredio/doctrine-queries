@@ -102,7 +102,7 @@ final readonly class ScalarQueries extends BaseQueries
 		/** @var Query<int, array{ k: array-key, v: ValueType }> $query */
 		$query = $this->createFindPairsBy($entity, $key, $value, $criteria, $orderBy)->getQuery();
 
-		return new DatabasePairs($query->setHydrationMode(self::HydrationMode));
+		return new DatabasePairs($query->setHydrationMode(self::HydrationMode), $key === $value);
 	}
 
 	/**

@@ -19,6 +19,7 @@ final readonly class DatabasePairs
 	 */
 	public function __construct(
 		private Query $query,
+		private bool $sameKeyAsValue = false,
 	)
 	{
 	}
@@ -56,8 +57,10 @@ final readonly class DatabasePairs
 	 */
 	public function yield(): iterable
 	{
+		$key = $this->sameKeyAsValue ? self::ValueColumn : self::KeyColumn;
+
 		foreach ($this->query->toIterable(hydrationMode: $this->query->getHydrationMode()) as $row) {
-			yield $row[self::KeyColumn] => $row[self::ValueColumn]; // @phpstan-ignore-line
+			yield $row[$key] => $row[self::ValueColumn]; // @phpstan-ignore-line
 		}
 	}
 

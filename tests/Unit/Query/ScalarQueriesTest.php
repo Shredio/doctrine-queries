@@ -171,6 +171,21 @@ final class ScalarQueriesTest extends TestCase
 		], $values);
 	}
 
+	public function testFindPairsSameKeyAsValue(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findPairsBy(Article::class, 'title', 'title')->asArray();
+
+		$this->assertSame([
+			'Sample Article' => 'Sample Article',
+			'Another Article' => 'Another Article',
+			'Third Article' => 'Third Article',
+		], $values);
+	}
+
 	public function testFindColumnValues(): void
 	{
 		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
