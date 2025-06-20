@@ -12,8 +12,10 @@ use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\Doctrine\DescriptorNotRegisteredException;
 use PHPStan\Type\Doctrine\DescriptorRegistry;
 use PHPStan\Type\Doctrine\ObjectMetadataResolver;
+use PHPStan\Type\IntersectionType;
 use PHPStan\Type\MixedType;
 use PHPStan\Type\NeverType;
+use PHPStan\Type\NullType;
 use PHPStan\Type\ObjectType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
@@ -58,28 +60,54 @@ final readonly class PhpStanDoctrineService
 				continue;
 			}
 
+			$criteriaType = $criteria->valueType;
+
 			if ($criteria->operator === '=') {
 				if ($type->isObject()->no() && $type->isArray()->no()) { // intersect '2020-01-01' with DateTime leads to *NEVER* type
-					$typeToCombine = $this->getSimpleTypeForCombinator($criteria->valueType);
+					$typeToCombine = $this->getSimpleTypeForCombinator($criteriaType);
+
+					if ($typeToCombine === null && $this->canBeNull($type) && !$this->containsNull($criteriaType)) {
+						return TypeCombinator::removeNull($type); // if we can be null, but criteria does not allow null, we can remove it
+					}
 
 					return $typeToCombine === null ? $type : TypeCombinator::intersect($type, $typeToCombine);
 				}
 
-				if (($type->isNull()->maybe() || $type->isNull()->yes()) && $criteria->valueType->isNull()->no()) { // but we can still remove a null
-					return TypeCombinator::removeNull($type);
+				if ($this->canBeNull($type) && !$this->containsNull($criteriaType)) {
+					return TypeCombinator::removeNull($type); // if we can be null, but criteria does not allow null, we can remove it
 				}
 
 				return $type;
 			}
 
 			if ($criteria->operator === '!=') {
-				$typeToCombine = $this->getSimpleTypeForCombinator($criteria->valueType);
+				$typeToCombine = $this->getSimpleTypeForCombinator($criteriaType);
 
 				return $typeToCombine === null ? $type : TypeCombinator::remove($type, $typeToCombine);
 			}
 		}
 
 		return $type;
+	}
+
+	private function containsNull(Type $type): bool
+	{
+		if ($type->isArray()->yes()) {
+			foreach ($type->getArrays() as $arrayType) {
+				if (TypeCombinator::containsNull($arrayType->getItemType())) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		return TypeCombinator::containsNull($type);
+	}
+
+	private function canBeNull(Type $type): bool
+	{
+		return $type->isNull()->yes() || $type->isNull()->maybe();
 	}
 
 	private function getSimpleTypeForCombinator(Type $type): ?Type

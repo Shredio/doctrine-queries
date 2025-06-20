@@ -100,4 +100,16 @@ class ScalarQueriesCases
 		assertType('string|null', $queries->findSingleColumnValueBy(Article::class, 'title', ['id' => 1]));
 	}
 
+	/**
+	 * @param list<string> $symbols
+	 * @param list<string|null> $nullableSymbols
+	 */
+	public function testInCriteriaTypes(ScalarQueries $queries, array $symbols = [], array $nullableSymbols = []): void
+	{
+		assertType("list<array{symbol: 'A'|'B'}>", $queries->findBy(Article::class, ['symbol' => ['A', 'B']], select: ['symbol'])->asArray());
+		assertType("list<array{symbol: string}>", $queries->findBy(Article::class, ['symbol' => $symbols], select: ['symbol'])->asArray());
+		assertType("list<array{symbol: string|null}>", $queries->findBy(Article::class, ['symbol' => $nullableSymbols], select: ['symbol'])->asArray());
+		assertType("list<array{symbol: 'A'|null}>", $queries->findBy(Article::class, ['symbol' => ['A', null]], select: ['symbol'])->asArray());
+	}
+
 }
