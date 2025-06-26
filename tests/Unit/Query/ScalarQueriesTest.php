@@ -3,11 +3,13 @@
 namespace Tests\Unit\Query;
 
 use DateTimeImmutable;
+use Doctrine\ORM\EntityManagerInterface;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 use Tests\Context\DoctrineContext;
 use Tests\Entity\Article;
+use Tests\Entity\Author;
 use Tests\TestCase;
 use Tests\Unit\Helpers;
 
@@ -39,6 +41,84 @@ final class ScalarQueriesTest extends TestCase
 				'title' => 'Another Article',
 				'content' => 'This is another article.',
 				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+			],
+			[
+				'id' => 3,
+				'title' => 'Third Article',
+				'content' => 'This is the third article.',
+				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+			],
+		], $values);
+	}
+
+	public function testFindByWithSubQuery(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$em = $this->createManagerRegistry()->getManager();
+
+		assert($em instanceof EntityManagerInterface);
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+
+		$subQuery = $em->createQueryBuilder()
+			->select('e.id')
+			->from(Author::class, 'e')
+			->where('e.name = :author')
+			->setParameter('author', 'John Doe');
+
+		$values = $queries->findBy(Article::class, [
+			'author' => $subQuery->getQuery(),
+		])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 1,
+				'title' => 'Sample Article',
+				'content' => 'This is a sample article.',
+				'symbol' => 'sym',
+				'createdAt' => '2021-01-01 00:00:00',
+			],
+			[
+				'id' => 3,
+				'title' => 'Third Article',
+				'content' => 'This is the third article.',
+				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+			],
+		], $values);
+	}
+
+	public function testFindByWithSubQueryBuilder(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$em = $this->createManagerRegistry()->getManager();
+
+		assert($em instanceof EntityManagerInterface);
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+
+		$subQuery = $em->createQueryBuilder()
+			->select('e.id')
+			->from(Author::class, 'e')
+			->where('e.name = :author')
+			->setParameter('author', 'John Doe');
+
+		$values = $queries->findBy(Article::class, [
+			'author' => $subQuery,
+		])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 1,
+				'title' => 'Sample Article',
+				'content' => 'This is a sample article.',
+				'symbol' => 'sym',
 				'createdAt' => '2021-01-01 00:00:00',
 			],
 			[

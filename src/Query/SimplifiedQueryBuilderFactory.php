@@ -85,12 +85,12 @@ final readonly class SimplifiedQueryBuilderFactory
 		$metadata = $em->getClassMetadata($entity);
 
 		$qb = $em->createQueryBuilder();
-		$qb->from($entity, 'a');
+		$qb->from($entity, 'e0');
 
 		if ($select) {
-			$qb->select($this->selectParser->getFromSelect($metadata, $select, 'a'));
+			$qb->select($this->selectParser->getFromSelect($metadata, $select, 'e0'));
 		} else {
-			$qb->select($this->selectParser->getForAll($metadata, 'a'));
+			$qb->select($this->selectParser->getForAll($metadata, 'e0'));
 		}
 
 		if ($distinct) {
@@ -98,7 +98,7 @@ final readonly class SimplifiedQueryBuilderFactory
 		}
 
 		if ($criteria) {
-			$this->applyCriteria($qb, $criteria, 'a');
+			$this->applyCriteria($qb, $criteria, 'e0');
 		}
 
 		if ($orderBy) {
@@ -123,17 +123,17 @@ final readonly class SimplifiedQueryBuilderFactory
 		$metadata = $em->getClassMetadata($entity);
 
 		$qb = $em->createQueryBuilder();
-		$qb->from($entity, 'a');
+		$qb->from($entity, 'e0');
 
 		$fieldNames = $metadata->getIdentifierFieldNames();
 
 		if (count($fieldNames) === 1) {
-			$qb->select(sprintf('COUNT(a.%s)', $fieldNames[0]));
+			$qb->select(sprintf('COUNT(e0.%s)', $fieldNames[0]));
 		} else {
-			$qb->select('COUNT(a)');
+			$qb->select('COUNT(e0)');
 		}
 
-		$this->applyCriteria($qb, $criteria, 'a');
+		$this->applyCriteria($qb, $criteria, 'e0');
 
 		return $qb;
 	}
@@ -151,9 +151,9 @@ final readonly class SimplifiedQueryBuilderFactory
 		assert($em instanceof EntityManagerInterface);
 
 		$qb = $em->createQueryBuilder();
-		$qb->delete($entity, 'a');
+		$qb->delete($entity, 'e0');
 
-		$this->applyCriteria($qb, $criteria, 'a');
+		$this->applyCriteria($qb, $criteria, 'e0');
 
 		return $qb;
 	}
@@ -173,6 +173,14 @@ final readonly class SimplifiedQueryBuilderFactory
 			if ($parsed->parameterName) {
 				$qb->setParameter($parsed->parameterName, $parsed->value);
 			}
+
+			if ($parsed->parameters) {
+				$params = $qb->getParameters();
+
+				foreach ($parsed->parameters as $parameter) {
+					$params->add($parameter);
+				}
+			}
 		}
 	}
 
@@ -185,7 +193,7 @@ final readonly class SimplifiedQueryBuilderFactory
 	private function applyOrderBy(QueryBuilder $qb, array $orderBy): void
 	{
 		foreach ($orderBy as $field => $direction) {
-			$qb->addOrderBy(sprintf('a.%s', $field), $direction);
+			$qb->addOrderBy(sprintf('e0.%s', $field), $direction);
 		}
 	}
 

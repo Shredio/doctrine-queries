@@ -2,6 +2,8 @@
 
 namespace Shredio\DoctrineQueries\Criteria;
 
+use Doctrine\ORM\Query;
+use Doctrine\ORM\QueryBuilder;
 use InvalidArgumentException;
 
 /**
@@ -30,8 +32,22 @@ final readonly class CriteriaParser
 
 			[$field, $operator] = self::parseOperator($field);
 			$operand = '%s';
+			$parameters = null;
 
-			if (is_iterable($value)) {
+			if ($value instanceof QueryBuilder || $value instanceof Query) {
+				$dql = $value->getDQL();
+
+				if ($operator === '=') {
+					$operator = sprintf('IN(%s)', $dql);
+				} else if ($operator === '!=') {
+					$operator = sprintf('NOT IN(%s)', $dql);
+				} else {
+					throw new InvalidArgumentException('Only = and != operators are allowed with QueryBuilder or Query value');
+				}
+
+				$parameters = $value->getParameters();
+				$operand = null;
+			} else if (is_iterable($value)) {
 				$value = self::toArray($value);
 
 				if ($operator === '=') {
@@ -70,6 +86,7 @@ final readonly class CriteriaParser
 				$operand,
 				$param,
 				$operand !== null ? $value : null,
+				$parameters,
 			);
 		}
 	}
