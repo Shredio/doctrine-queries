@@ -55,4 +55,22 @@ final readonly class ObjectQueries extends BaseQueries
 		return new DatabaseResults($query);
 	}
 
+	/**
+	 * Finds a single entity by criteria and returns it as an object.
+	 *
+	 * @template T of object
+	 * @param class-string<T> $entity The entity class to query
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @return T|null The found entity object or null if not found
+	 */
+	public function findOneBy(string $entity, array $criteria = [], array $orderBy = []): ?object
+	{
+		/** @var Query<int, T> $query */
+		$query = $this->createFindBy($entity, $criteria, $orderBy)->setMaxResults(1)->getQuery();
+
+		/** @var T|null */
+		return $query->getOneOrNullResult();
+	}
+
 }

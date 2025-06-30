@@ -40,6 +40,7 @@ final readonly class DoctrineQueriesRule implements Rule
 		],
 		ObjectQueries::class => [
 			'findBy' => [1 => 'criteria', 2 => 'orderBy'],
+			'findOneBy' => [1 => 'criteria', 2 => 'orderBy'],
 		],
 		DoctrineQueries::class => [
 			'countBy' => [1 => 'criteria'],

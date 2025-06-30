@@ -107,6 +107,7 @@ class DoctrineQueriesRuleCases
 		$this->doctrineQueries->existsBy(Article::class, ['id' => 1]);
 		$this->doctrineQueries->deleteBy(Article::class, ['symbol' => null]);
 		$this->objectQueries->findBy(Article::class, ['author' => 1]);
+		$this->objectQueries->findOneBy(Article::class, ['author' => 1]);
 	}
 
 	public function validDynamicArgumentBuilder(): void
