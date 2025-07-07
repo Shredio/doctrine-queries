@@ -3,6 +3,7 @@
 namespace Shredio\DoctrineQueries\Query;
 
 use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
+use Shredio\DoctrineQueries\Result\DatabaseIndexedResults;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
 use Doctrine\ORM\AbstractQuery;
@@ -68,6 +69,32 @@ final readonly class ScalarQueries extends BaseQueries
 		$query = $this->createFindBy($entity, $criteria, $orderBy, $select)->getQuery();
 
 		return new DatabaseResults($query->setHydrationMode(self::HydrationMode));
+	}
+
+	/**
+	 * Find entities by criteria and returns scalar values, keys are the values from the $indexField.
+	 *
+	 * @param class-string $entity The entity class to query
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param string[] $select Fields to select
+	 * @return DatabaseIndexedResults<mixed, array<string, ValueType>> Collection of scalar results
+	 */
+	public function findIndexedBy(string $entity, string $indexField, array $criteria = [], array $orderBy = [], array $select = []): DatabaseIndexedResults
+	{
+		$unsetIndexField = false;
+
+		if (isset($select[$indexField])) {
+			$indexField = $select[$indexField];
+		} else if ($select !== [] && !in_array($indexField, $select, true)) {
+			$select[] = $indexField;
+			$unsetIndexField = true;
+		}
+
+		/** @var Query<int, array<string, ValueType>> $query */
+		$query = $this->createFindBy($entity, $criteria, $orderBy, $select)->getQuery();
+
+		return new DatabaseIndexedResults($query->setHydrationMode(self::HydrationMode), $indexField, $unsetIndexField);
 	}
 
 	/**

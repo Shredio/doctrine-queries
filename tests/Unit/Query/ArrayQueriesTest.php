@@ -96,6 +96,81 @@ final class ArrayQueriesTest extends TestCase
 		$this->assertNull($columns[2]);
 	}
 
+	public function testFindIndexedByYield(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = iterator_to_array($queries->findIndexedBy(Article::class, 'title')->yield());
+
+		$this->assertSame([
+			'Sample Article' => [
+				'id' => 1,
+				'title' => 'Sample Article',
+				'content' => 'This is a sample article.',
+			],
+			'Another Article' => [
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+			],
+			'Third Article' => [
+				'id' => 3,
+				'title' => 'Third Article',
+				'content' => 'This is the third article.',
+			],
+		], $this->unsetColumns($values, ['createdAt', 'symbol']));
+	}
+
+	public function testFindIndexedBy(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findIndexedBy(Article::class, 'title')->asArray();
+
+		$this->assertSame([
+			'Sample Article' => [
+				'id' => 1,
+				'title' => 'Sample Article',
+				'content' => 'This is a sample article.',
+			],
+			'Another Article' => [
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+			],
+			'Third Article' => [
+				'id' => 3,
+				'title' => 'Third Article',
+				'content' => 'This is the third article.',
+			],
+		], $this->unsetColumns($values, ['createdAt', 'symbol']));
+	}
+
+	public function testFindIndexedByUnsetIndexField(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findIndexedBy(Article::class, 'title', select: ['id'])->asArray();
+
+		$this->assertSame([
+			'Sample Article' => [
+				'id' => 1,
+			],
+			'Another Article' => [
+				'id' => 2,
+			],
+			'Third Article' => [
+				'id' => 3,
+			],
+		], $values);
+	}
+
 	private function getQueries(): ArrayQueries
 	{
 		return new ArrayQueries(new SimplifiedQueryBuilderFactory($this->createManagerRegistry()));

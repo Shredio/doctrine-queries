@@ -164,6 +164,93 @@ final class ScalarQueriesTest extends TestCase
 		], $values);
 	}
 
+	public function testFindIndexedByYield(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = iterator_to_array($queries->findIndexedBy(Article::class, 'title')->yield());
+
+		$this->assertSame([
+			'Sample Article' => [
+				'id' => 1,
+				'title' => 'Sample Article',
+				'content' => 'This is a sample article.',
+				'symbol' => 'sym',
+				'createdAt' => '2021-01-01 00:00:00',
+			],
+			'Another Article' => [
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+			],
+			'Third Article' => [
+				'id' => 3,
+				'title' => 'Third Article',
+				'content' => 'This is the third article.',
+				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+			],
+		], $values);
+	}
+
+	public function testFindIndexedBy(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findIndexedBy(Article::class, 'title')->asArray();
+
+		$this->assertSame([
+			'Sample Article' => [
+				'id' => 1,
+				'title' => 'Sample Article',
+				'content' => 'This is a sample article.',
+				'symbol' => 'sym',
+				'createdAt' => '2021-01-01 00:00:00',
+			],
+			'Another Article' => [
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+			],
+			'Third Article' => [
+				'id' => 3,
+				'title' => 'Third Article',
+				'content' => 'This is the third article.',
+				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+			],
+		], $values);
+	}
+
+	public function testFindIndexedByUnsetIndexField(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findIndexedBy(Article::class, 'title', select: ['id'])->asArray();
+
+		$this->assertSame([
+			'Sample Article' => [
+				'id' => 1,
+			],
+			'Another Article' => [
+				'id' => 2,
+			],
+			'Third Article' => [
+				'id' => 3,
+			],
+		], $values);
+	}
+
 	public function testFindByWithRelations(): void
 	{
 		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));

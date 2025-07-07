@@ -26,6 +26,7 @@ final readonly class DoctrineQueriesRule implements Rule
 	private const Map = [
 		ScalarQueries::class => [
 			'findBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
+			'findIndexedBy' => [1 => 'indexField', 2 => 'criteria', 3 => 'orderBy', 4 => 'select'],
 			'findByWithRelations' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
 			'findPairsBy' => [1 => 'field', 2 => 'field', 3 => 'criteria', 4 => 'orderBy'],
 			'findColumnValuesBy' => [1 => 'field', 2 => 'criteria', 3 => 'orderBy'],
@@ -33,6 +34,7 @@ final readonly class DoctrineQueriesRule implements Rule
 		],
 		ArrayQueries::class => [
 			'findBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
+			'findIndexedBy' => [1 => 'indexField', 2 => 'criteria', 3 => 'orderBy', 4 => 'select'],
 			'findByWithRelations' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
 			'findPairsBy' => [1 => 'field', 2 => 'field', 3 => 'criteria', 4 => 'orderBy'],
 			'findColumnValuesBy' => [1 => 'field', 2 => 'criteria', 3 => 'orderBy'],
@@ -193,7 +195,7 @@ final readonly class DoctrineQueriesRule implements Rule
 				continue;
 			}
 
-			// 'field'
+			// 'field', 'indexField'
 			$fieldName = $this->service->tryGetSingleStringFromType($argType);
 
 			if ($fieldName === null) {

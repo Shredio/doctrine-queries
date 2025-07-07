@@ -7,6 +7,7 @@ use Shredio\DoctrineQueries\PhpStan\CriteriaItemType;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineService;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory;
 use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
+use Shredio\DoctrineQueries\Result\DatabaseIndexedResults;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
 use Doctrine\ORM\Mapping\ClassMetadata;
@@ -32,6 +33,7 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 
 	private const array MethodMap = [
 		'findBy' => true,
+		'findIndexedBy' => true,
 		'findByWithRelations' => true,
 		'findPairsBy' => true,
 		'findColumnValuesBy' => true,
@@ -76,6 +78,10 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 			return $this->fromFindBy($args, $scope, $entity);
 		}
 
+		if ($methodName === 'findIndexedBy') {
+			return $this->fromFindIndexedBy($args, $scope, $entity);
+		}
+
 		if ($methodName === 'findByWithRelations') {
 			return $this->fromFindByWithRelations($args, $scope, $entity);
 		}
@@ -117,6 +123,48 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 		}
 
 		return new GenericObjectType(DatabaseResults::class, [
+			new ConstantArrayType($keyTypes, $valueTypes),
+		]);
+	}
+
+	/**
+	 * @param non-empty-array<Arg> $args
+	 * @param class-string $entityClassName
+	 */
+	private function fromFindIndexedBy(
+		array $args,
+		Scope $scope,
+		string $entityClassName,
+	): GenericObjectType
+	{
+		$criteria = $this->getCriteria($scope, $args[2] ?? null);
+		$select = $this->getSelect($scope, $entityClassName, $args[4] ?? null);
+
+		$keyTypes = [];
+		$valueTypes = [];
+
+		foreach ($select as [$field, $alias]) {
+			$keyTypes[] = new ConstantStringType($alias);
+			$valueTypes[] = $this->service->determineTypeByFieldCriteria(
+				$this->createTypeForField($entityClassName, $field),
+				$field,
+				$criteria,
+			);
+		}
+
+		$indexField = $this->service->tryGetSingleStringFromType($scope->getType($args[1]->value));
+		if ($indexField === null) {
+			$indexType = new MixedType();
+		} else {
+			$indexType = $this->service->determineTypeByFieldCriteria(
+				$this->createTypeForField($entityClassName, $indexField),
+				$indexField,
+				$criteria,
+			);
+		}
+
+		return new GenericObjectType(DatabaseIndexedResults::class, [
+			$indexType,
 			new ConstantArrayType($keyTypes, $valueTypes),
 		]);
 	}

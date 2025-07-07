@@ -14,6 +14,14 @@ class ScalarQueriesCases
 		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: string|null, createdAt: string}>', $queries->findBy(Article::class));
 	}
 
+	public function testFindIndexedBy(ScalarQueries $queries): void
+	{
+		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<string, array{id: int, title: string, content: string, symbol: string|null, createdAt: string}>', $queries->findIndexedBy(Article::class, 'title'));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<int, array{id: int, title: string, content: string, symbol: string|null, createdAt: string}>', $queries->findIndexedBy(Article::class, 'id'));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<\'Foo\', array{id: int, title: \'Foo\', content: string, symbol: string|null, createdAt: string}>', $queries->findIndexedBy(Article::class, 'title', criteria: ['title' => 'Foo']));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<\'Bar\'|\'Foo\', array{id: int, title: \'Bar\'|\'Foo\', content: string, symbol: string|null, createdAt: string}>', $queries->findIndexedBy(Article::class, 'title', criteria: ['title' => ['Foo', 'Bar']]));
+	}
+
 	public function testFindByYield(ScalarQueries $queries): void
 	{
 		assertType('iterable<int, array{id: int, title: string, content: string, symbol: string|null, createdAt: string}>', $queries->findBy(Article::class)->yield());
