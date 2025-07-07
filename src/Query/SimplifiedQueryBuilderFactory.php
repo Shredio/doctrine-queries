@@ -125,13 +125,15 @@ final readonly class SimplifiedQueryBuilderFactory
 		$qb = $em->createQueryBuilder();
 		$qb->from($entity, 'e0');
 
-		$fieldNames = $metadata->getIdentifierFieldNames();
-
-		if (count($fieldNames) === 1) {
-			$qb->select(sprintf('COUNT(e0.%s)', $fieldNames[0]));
-		} else {
-			$qb->select('COUNT(e0)');
+		$fieldName = $metadata->getIdentifierFieldNames()[0] ?? null;
+		if ($fieldName === null) {
+			throw new \LogicException(sprintf(
+				'Entity "%s" does not have an identifier field defined.',
+				$entity
+			));
 		}
+
+		$qb->select(sprintf('COUNT(e0.%s)', $fieldName));
 
 		$this->applyCriteria($qb, $criteria, 'e0');
 
