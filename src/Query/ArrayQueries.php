@@ -66,6 +66,25 @@ final readonly class ArrayQueries extends BaseQueries
 	}
 
 	/**
+	 * Find a single entity by criteria and returns them as associative arrays.
+	 *
+	 * @param class-string $entity The entity class to query
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param string[] $select Fields to select
+	 * @return array<string, ValueType>|null
+	 */
+	public function findOneBy(string $entity, array $criteria = [], array $orderBy = [], array $select = []): ?array
+	{
+		/** @var Query<int, array<string, ValueType>> $query */
+		$query = $this->createFindBy($entity, $criteria, $orderBy, $select)->getQuery();
+		$query->setHydrationMode(self::HydrationMode);
+
+		/** @var array<string, ValueType>|null */
+		return $query->getOneOrNullResult();
+	}
+
+	/**
 	 * Find entities by criteria and returns them as associative arrays, keys are the values from the $indexField.
 	 *
 	 * @param class-string $entity The entity class to query

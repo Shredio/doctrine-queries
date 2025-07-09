@@ -14,6 +14,11 @@ class ScalarQueriesCases
 		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string}>', $queries->findBy(Article::class));
 	}
 
+	public function testFindOneBy(ScalarQueries $queries): void
+	{
+		assertType('array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string}|null', $queries->findOneBy(Article::class));
+	}
+
 	public function testFindIndexedBy(ScalarQueries $queries): void
 	{
 		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<string, array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string}>', $queries->findIndexedBy(Article::class, 'title'));

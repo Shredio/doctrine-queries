@@ -15,6 +15,11 @@ class ArrayQueriesCases
 		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, type: Tests\Entity\Enum\ArticleType}>', $queries->findBy(Article::class));
 	}
 
+	public function testFindOneBy(ArrayQueries $queries): void
+	{
+		assertType('array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, type: Tests\Entity\Enum\ArticleType}|null', $queries->findOneBy(Article::class));
+	}
+
 	public function testFindByYield(ArrayQueries $queries): void
 	{
 		assertType('iterable<int, array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, type: Tests\Entity\Enum\ArticleType}>', $queries->findBy(Article::class)->yield());

@@ -171,6 +171,34 @@ final class ArrayQueriesTest extends TestCase
 		], $values);
 	}
 
+	public function testFindOneBy(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$value = $queries->findOneBy(Article::class, ['id' => 1]);
+
+		$this->assertSame([
+			'id' => 1,
+			'title' => 'Sample Article',
+			'content' => 'This is a sample article.',
+		], $this->unsetColumns([$value], ['createdAt', 'symbol', 'type'])[0]);
+
+		$this->assertInstanceOf(DateTimeImmutable::class, $value['createdAt']);
+	}
+
+	public function testFindOneByReturnsNull(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$value = $queries->findOneBy(Article::class, ['id' => 999]);
+
+		$this->assertNull($value);
+	}
+
 	private function getQueries(): ArrayQueries
 	{
 		return new ArrayQueries(new SimplifiedQueryBuilderFactory($this->createManagerRegistry()));

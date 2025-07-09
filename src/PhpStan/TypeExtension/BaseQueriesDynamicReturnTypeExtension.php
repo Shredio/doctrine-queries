@@ -2,23 +2,12 @@
 
 namespace Shredio\DoctrineQueries\PhpStan\TypeExtension;
 
-use Doctrine\ORM\Mapping\ManyToOneAssociationMapping;
-use Shredio\DoctrineQueries\PhpStan\CriteriaItemType;
-use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineService;
-use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory;
-use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
-use Shredio\DoctrineQueries\Result\DatabaseIndexedResults;
-use Shredio\DoctrineQueries\Result\DatabasePairs;
-use Shredio\DoctrineQueries\Result\DatabaseResults;
-use Doctrine\ORM\Mapping\ClassMetadata;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\MethodReflection;
 use PHPStan\Type\Constant\ConstantArrayType;
 use PHPStan\Type\Constant\ConstantStringType;
-use PHPStan\Type\Doctrine\DescriptorRegistry;
-use PHPStan\Type\Doctrine\ObjectMetadataResolver;
 use PHPStan\Type\DynamicMethodReturnTypeExtension;
 use PHPStan\Type\Generic\GenericObjectType;
 use PHPStan\Type\IntegerType;
@@ -27,12 +16,20 @@ use PHPStan\Type\StringType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
 use PHPStan\Type\UnionType;
+use Shredio\DoctrineQueries\PhpStan\CriteriaItemType;
+use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineService;
+use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory;
+use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
+use Shredio\DoctrineQueries\Result\DatabaseIndexedResults;
+use Shredio\DoctrineQueries\Result\DatabasePairs;
+use Shredio\DoctrineQueries\Result\DatabaseResults;
 
 abstract readonly class BaseQueriesDynamicReturnTypeExtension implements DynamicMethodReturnTypeExtension
 {
 
 	private const array MethodMap = [
 		'findBy' => true,
+		'findOneBy' => true,
 		'findIndexedBy' => true,
 		'findByWithRelations' => true,
 		'findPairsBy' => true,
@@ -94,6 +91,10 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 			return $this->fromFindColumnValuesBy($args, $scope, $entity);
 		}
 
+		if ($methodName === 'findOneBy') {
+			return $this->fromFindOneBy($args, $scope, $entity);
+		}
+
 		return $this->fromFindSingleColumnValueBy($args, $scope, $entity);
 	}
 
@@ -125,6 +126,34 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 		return new GenericObjectType(DatabaseResults::class, [
 			new ConstantArrayType($keyTypes, $valueTypes),
 		]);
+	}
+
+	/**
+	 * @param non-empty-array<Arg> $args
+	 * @param class-string $entityClassName
+	 */
+	private function fromFindOneBy(
+		array $args,
+		Scope $scope,
+		string $entityClassName,
+	): Type
+	{
+		$criteria = $this->getCriteria($scope, $args[1] ?? null);
+		$select = $this->getSelect($scope, $entityClassName, $args[3] ?? null);
+
+		$keyTypes = [];
+		$valueTypes = [];
+
+		foreach ($select as [$field, $alias]) {
+			$keyTypes[] = new ConstantStringType($alias);
+			$valueTypes[] = $this->service->determineTypeByFieldCriteria(
+				$this->createTypeForField($entityClassName, $field),
+				$field,
+				$criteria,
+			);
+		}
+
+		return TypeCombinator::addNull(new ConstantArrayType($keyTypes, $valueTypes));
 	}
 
 	/**

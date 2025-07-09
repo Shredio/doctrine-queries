@@ -401,6 +401,35 @@ final class ScalarQueriesTest extends TestCase
 		$this->assertSame('Sample Article', $value);
 	}
 
+	public function testFindOneBy(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$value = $queries->findOneBy(Article::class, ['id' => 1]);
+
+		$this->assertSame([
+			'id' => 1,
+			'title' => 'Sample Article',
+			'content' => 'This is a sample article.',
+			'symbol' => 'sym',
+			'createdAt' => '2021-01-01 00:00:00',
+			'type' => 'news',
+		], $value);
+	}
+
+	public function testFindOneByReturnsNull(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$value = $queries->findOneBy(Article::class, ['id' => 999]);
+
+		$this->assertNull($value);
+	}
+
 	private function getQueries(): ScalarQueries
 	{
 		return new ScalarQueries(new SimplifiedQueryBuilderFactory($this->createManagerRegistry()));
