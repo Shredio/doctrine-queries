@@ -390,6 +390,35 @@ final class ScalarQueriesTest extends TestCase
 		], $values);
 	}
 
+	public function testFindColumnValuesSelectRelation(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findColumnValuesBy(Article::class, 'author')->asArray();
+
+		$this->assertSame([
+			1,
+			1,
+			2,
+		], $values);
+	}
+
+	public function testFindColumnValuesSelectDistinct(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findColumnValuesBy(Article::class, 'author', distinct: true)->asArray();
+
+		$this->assertSame([
+			1,
+			2,
+		], $values);
+	}
+
 	public function testFindSingleColumnValue(): void
 	{
 		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));

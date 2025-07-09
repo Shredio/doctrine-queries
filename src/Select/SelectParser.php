@@ -44,7 +44,7 @@ final readonly class SelectParser
 				$useAlias = true;
 			}
 
-			$assoc = $metadata->hasAssociation($alias);
+			$assoc = $metadata->hasAssociation($field);
 
 			if (isset($unique[$alias])) {
 				throw new InvalidArgumentException(sprintf('Column "%s" is already selected. Please use unique column names.', $alias));

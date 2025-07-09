@@ -85,6 +85,7 @@ class ScalarQueriesCases
 		assertType('Shredio\DoctrineQueries\Result\DatabaseColumnValues<string>', $queries->findColumnValuesBy(Article::class, 'title'));
 		assertType('Shredio\DoctrineQueries\Result\DatabaseColumnValues<int>', $queries->findColumnValuesBy(Article::class, 'id'));
 		assertType('Shredio\DoctrineQueries\Result\DatabaseColumnValues<string|null>', $queries->findColumnValuesBy(Article::class, 'symbol'));
+		assertType('list<int>', $queries->findColumnValuesBy(Article::class, 'author')->asArray());
 	}
 
 	public function testFindColumnValuesByYield(ScalarQueries $queries): void
