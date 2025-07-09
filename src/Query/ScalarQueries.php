@@ -84,6 +84,7 @@ final readonly class ScalarQueries extends BaseQueries
 		/** @var Query<int, array<string, ValueType>> $query */
 		$query = $this->createFindBy($entity, $criteria, $orderBy, $select)->getQuery();
 		$query->setHydrationMode(self::HydrationMode);
+		$query->setMaxResults(1);
 
 		/** @var array<string, ValueType>|null */
 		return $query->getOneOrNullResult();
