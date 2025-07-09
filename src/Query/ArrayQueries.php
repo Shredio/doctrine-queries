@@ -38,7 +38,6 @@ use Shredio\DoctrineQueries\Result\DatabaseResults;
  *   - ['id', 'name'] - select only id and name fields
  *   - ['name' => 'personName'] - select the name field and alias it as personName
  *
- * @internal
  * @phpstan-type ValueType mixed
  */
 final readonly class ArrayQueries extends BaseQueries

@@ -38,7 +38,6 @@ use Shredio\DoctrineQueries\Select\SelectParser;
  *    - ['id', 'name'] - select only id and name fields
  *    - ['name' => 'personName'] - select the name field and alias it as personName
  * 
- * @internal
  * @phpstan-type ValueType scalar|null
  */
 final readonly class ScalarQueries extends BaseQueries

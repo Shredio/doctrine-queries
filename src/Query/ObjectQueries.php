@@ -33,7 +33,6 @@ use Doctrine\ORM\Query;
  *    - ['id', 'name'] - select only id and name fields
  *    - ['name' => 'personName'] - select the name field and alias it as personName
  * 
- * @internal
  */
 final readonly class ObjectQueries extends BaseQueries
 {
