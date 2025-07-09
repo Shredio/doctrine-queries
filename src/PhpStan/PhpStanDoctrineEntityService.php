@@ -108,7 +108,7 @@ final readonly class PhpStanDoctrineEntityService
 				$type = $descriptor->getWritableToPropertyType();
 			}
 
-			if ($enumType !== null) {
+			if (!$returnScalarType && $enumType !== null) {
 				if ($type->isArray()->no()) {
 					$type = new ObjectType($enumType);
 				} else {
@@ -122,7 +122,7 @@ final readonly class PhpStanDoctrineEntityService
 				$type = new MixedType();
 			}
 		} catch (DescriptorNotRegisteredException $e) {
-			if ($enumType !== null) {
+			if (!$returnScalarType && $enumType !== null) {
 				$type = new ObjectType($enumType);
 			} else {
 				$type = new MixedType();

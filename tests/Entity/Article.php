@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
 use Symfony\Component\Clock\DatePoint;
 use Tests\Doctrine\Symbol;
+use Tests\Entity\Enum\ArticleType;
 
 #[Entity]
 class Article
@@ -33,6 +34,8 @@ class Article
 		private ?Symbol $symbol = null,
 		#[Column(type: 'datetime_immutable')]
 		private \DateTimeImmutable $createdAt = new DatePoint(),
+		#[Column(type: 'string', enumType: ArticleType::class)]
+		private ArticleType $type = ArticleType::News,
 	) {
 		$this->hashTags = new ArrayCollection();
 	}
@@ -65,6 +68,11 @@ class Article
 	public function getCreatedAt(): \DateTimeImmutable
 	{
 		return $this->createdAt;
+	}
+
+	public function getType(): ArticleType
+	{
+		return $this->type;
 	}
 
 }

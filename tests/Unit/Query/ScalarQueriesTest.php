@@ -35,6 +35,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is a sample article.',
 				'symbol' => 'sym',
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 			[
 				'id' => 2,
@@ -42,6 +43,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is another article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 			[
 				'id' => 3,
@@ -49,6 +51,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 		], $values);
 	}
@@ -81,6 +84,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is a sample article.',
 				'symbol' => 'sym',
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 			[
 				'id' => 3,
@@ -88,6 +92,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 		], $values);
 	}
@@ -120,6 +125,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is a sample article.',
 				'symbol' => 'sym',
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 			[
 				'id' => 3,
@@ -127,6 +133,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 		], $values);
 	}
@@ -146,6 +153,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is a sample article.',
 				'symbol' => 'sym',
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 			[
 				'id' => 2,
@@ -153,6 +161,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is another article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 			[
 				'id' => 3,
@@ -160,6 +169,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 		], $values);
 	}
@@ -179,6 +189,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is a sample article.',
 				'symbol' => 'sym',
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 			'Another Article' => [
 				'id' => 2,
@@ -186,6 +197,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is another article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 			'Third Article' => [
 				'id' => 3,
@@ -193,6 +205,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 		], $values);
 	}
@@ -212,6 +225,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is a sample article.',
 				'symbol' => 'sym',
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 			'Another Article' => [
 				'id' => 2,
@@ -219,6 +233,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is another article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 			'Third Article' => [
 				'id' => 3,
@@ -226,6 +241,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 			],
 		], $values);
 	}
@@ -266,6 +282,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is a sample article.',
 				'symbol' => 'sym',
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 				'author' => 1,
 			],
 			[
@@ -274,6 +291,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is another article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 				'author' => 2,
 			],
 			[
@@ -282,6 +300,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 				'author' => 1,
 			],
 		], $values);
@@ -302,6 +321,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is a sample article.',
 				'symbol' => 'sym',
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 				'author' => 1,
 			],
 			[
@@ -310,6 +330,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is another article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 				'author' => 2,
 			],
 			[
@@ -318,6 +339,7 @@ final class ScalarQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 				'symbol' => null,
 				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
 				'author' => 1,
 			],
 		], $values);

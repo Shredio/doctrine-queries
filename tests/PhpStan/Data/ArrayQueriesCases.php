@@ -12,22 +12,22 @@ class ArrayQueriesCases
 
 	public function testFindBy(ArrayQueries $queries): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable}>', $queries->findBy(Article::class));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, type: Tests\Entity\Enum\ArticleType}>', $queries->findBy(Article::class));
 	}
 
 	public function testFindByYield(ArrayQueries $queries): void
 	{
-		assertType('iterable<int, array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable}>', $queries->findBy(Article::class)->yield());
+		assertType('iterable<int, array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, type: Tests\Entity\Enum\ArticleType}>', $queries->findBy(Article::class)->yield());
 	}
 
 	public function testFindByAsArray(ArrayQueries $queries): void
 	{
-		assertType('list<array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable}>', $queries->findBy(Article::class)->asArray());
+		assertType('list<array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, type: Tests\Entity\Enum\ArticleType}>', $queries->findBy(Article::class)->asArray());
 	}
 
 	public function testFindByWithCriteria(ArrayQueries $queries): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: 1, title: string, content: string, symbol: Tests\Doctrine\Symbol, createdAt: DateTimeImmutable}>', $queries->findBy(Article::class, ['id' => 1, 'symbol !=' => null]));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: 1, title: string, content: string, symbol: Tests\Doctrine\Symbol, createdAt: DateTimeImmutable, type: Tests\Entity\Enum\ArticleType}>', $queries->findBy(Article::class, ['id' => 1, 'symbol !=' => null]));
 	}
 
 	public function testFindByWithSelect(ArrayQueries $queries): void
@@ -37,17 +37,17 @@ class ArrayQueriesCases
 
 	public function testFindByWithRelations(ArrayQueries $queries): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, author: int}>', $queries->findByWithRelations(Article::class));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, type: Tests\Entity\Enum\ArticleType, author: int}>', $queries->findByWithRelations(Article::class));
 	}
 
 	public function testFindByWithRelationsYield(ArrayQueries $queries): void
 	{
-		assertType('iterable<int, array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, author: int}>', $queries->findByWithRelations(Article::class)->yield());
+		assertType('iterable<int, array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, type: Tests\Entity\Enum\ArticleType, author: int}>', $queries->findByWithRelations(Article::class)->yield());
 	}
 
 	public function testFindByWithRelationsAsArray(ArrayQueries $queries): void
 	{
-		assertType('list<array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, author: int}>', $queries->findByWithRelations(Article::class)->asArray());
+		assertType('list<array{id: int, title: string, content: string, symbol: Tests\Doctrine\Symbol|null, createdAt: DateTimeImmutable, type: Tests\Entity\Enum\ArticleType, author: int}>', $queries->findByWithRelations(Article::class)->asArray());
 	}
 
 	public function testFindPairsBy(ArrayQueries $queries): void

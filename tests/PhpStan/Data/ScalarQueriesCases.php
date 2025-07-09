@@ -11,30 +11,30 @@ class ScalarQueriesCases
 
 	public function testFindBy(ScalarQueries $queries): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: string|null, createdAt: string}>', $queries->findBy(Article::class));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string}>', $queries->findBy(Article::class));
 	}
 
 	public function testFindIndexedBy(ScalarQueries $queries): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<string, array{id: int, title: string, content: string, symbol: string|null, createdAt: string}>', $queries->findIndexedBy(Article::class, 'title'));
-		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<int, array{id: int, title: string, content: string, symbol: string|null, createdAt: string}>', $queries->findIndexedBy(Article::class, 'id'));
-		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<\'Foo\', array{id: int, title: \'Foo\', content: string, symbol: string|null, createdAt: string}>', $queries->findIndexedBy(Article::class, 'title', criteria: ['title' => 'Foo']));
-		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<\'Bar\'|\'Foo\', array{id: int, title: \'Bar\'|\'Foo\', content: string, symbol: string|null, createdAt: string}>', $queries->findIndexedBy(Article::class, 'title', criteria: ['title' => ['Foo', 'Bar']]));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<string, array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string}>', $queries->findIndexedBy(Article::class, 'title'));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<int, array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string}>', $queries->findIndexedBy(Article::class, 'id'));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<\'Foo\', array{id: int, title: \'Foo\', content: string, symbol: string|null, createdAt: string, type: string}>', $queries->findIndexedBy(Article::class, 'title', criteria: ['title' => 'Foo']));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseIndexedResults<\'Bar\'|\'Foo\', array{id: int, title: \'Bar\'|\'Foo\', content: string, symbol: string|null, createdAt: string, type: string}>', $queries->findIndexedBy(Article::class, 'title', criteria: ['title' => ['Foo', 'Bar']]));
 	}
 
 	public function testFindByYield(ScalarQueries $queries): void
 	{
-		assertType('iterable<int, array{id: int, title: string, content: string, symbol: string|null, createdAt: string}>', $queries->findBy(Article::class)->yield());
+		assertType('iterable<int, array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string}>', $queries->findBy(Article::class)->yield());
 	}
 
 	public function testFindByAsArray(ScalarQueries $queries): void
 	{
-		assertType('list<array{id: int, title: string, content: string, symbol: string|null, createdAt: string}>', $queries->findBy(Article::class)->asArray());
+		assertType('list<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string}>', $queries->findBy(Article::class)->asArray());
 	}
 
 	public function testFindByWithCriteria(ScalarQueries $queries): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: 1, title: string, content: string, symbol: string, createdAt: string}>', $queries->findBy(Article::class, ['id' => 1, 'symbol !=' => null]));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: 1, title: string, content: string, symbol: string, createdAt: string, type: string}>', $queries->findBy(Article::class, ['id' => 1, 'symbol !=' => null]));
 	}
 
 	public function testFindByWithSelect(ScalarQueries $queries): void
@@ -44,17 +44,17 @@ class ScalarQueriesCases
 
 	public function testFindByWithRelations(ScalarQueries $queries): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, author: int}>', $queries->findByWithRelations(Article::class));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author: int}>', $queries->findByWithRelations(Article::class));
 	}
 
 	public function testFindByWithRelationsYield(ScalarQueries $queries): void
 	{
-		assertType('iterable<int, array{id: int, title: string, content: string, symbol: string|null, createdAt: string, author: int}>', $queries->findByWithRelations(Article::class)->yield());
+		assertType('iterable<int, array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author: int}>', $queries->findByWithRelations(Article::class)->yield());
 	}
 
 	public function testFindByWithRelationsAsArray(ScalarQueries $queries): void
 	{
-		assertType('list<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, author: int}>', $queries->findByWithRelations(Article::class)->asArray());
+		assertType('list<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author: int}>', $queries->findByWithRelations(Article::class)->asArray());
 	}
 
 	public function testFindPairsBy(ScalarQueries $queries): void

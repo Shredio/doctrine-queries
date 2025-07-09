@@ -43,7 +43,7 @@ final class ArrayQueriesTest extends TestCase
 				'title' => 'Third Article',
 				'content' => 'This is the third article.',
 			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol']));
+		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
 
 		$this->assertNotEmpty(array_column($values, 'createdAt'));
 		foreach (array_column($values, 'createdAt') as $value) {
@@ -83,7 +83,7 @@ final class ArrayQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 				'author' => 1,
 			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol']));
+		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
 
 		$this->assertNotEmpty(array_column($values, 'createdAt'));
 		foreach (array_column($values, 'createdAt') as $value) {
@@ -120,7 +120,7 @@ final class ArrayQueriesTest extends TestCase
 				'title' => 'Third Article',
 				'content' => 'This is the third article.',
 			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol']));
+		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
 	}
 
 	public function testFindIndexedBy(): void
@@ -147,7 +147,7 @@ final class ArrayQueriesTest extends TestCase
 				'title' => 'Third Article',
 				'content' => 'This is the third article.',
 			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol']));
+		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
 	}
 
 	public function testFindIndexedByUnsetIndexField(): void
