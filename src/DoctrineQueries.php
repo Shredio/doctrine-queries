@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries;
 
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use LogicException;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
@@ -9,6 +10,7 @@ use Shredio\DoctrineQueries\Query\ObjectQueries;
 use Shredio\DoctrineQueries\Query\RawQueryBuilder;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
+use Shredio\DoctrineQueries\Query\SubQuery;
 
 /**
  * Main entry point for simplified Doctrine queries.
@@ -94,6 +96,20 @@ final readonly class DoctrineQueries
 
 		/** @var int<0, max> */
 		return $result;
+	}
+
+	/**
+	 * @param class-string $entity The entity class to query
+	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param string[] $select Fields to select
+	 * @return SubQuery Configured query builder for the entity
+	 */
+	public function subQuery(string $entity, array $criteria = [], array $orderBy = [], array $select = []): SubQuery
+	{
+		return new SubQuery(
+			fn (string $alias): QueryBuilder => $this->queryBuilderFactory->create($entity, $select, $criteria, $orderBy, alias: $alias),
+		);
 	}
 
 	/**

@@ -18,14 +18,14 @@ final class CriteriaParserTest extends TestCase
 
 		$this->assertEquals('field1', $parsedCriteria[0]->field);
 		$this->assertEquals('=', $parsedCriteria[0]->operator);
-		$this->assertEquals(':param1', $parsedCriteria[0]->operand);
-		$this->assertEquals('param1', $parsedCriteria[0]->parameterName);
+		$this->assertEquals(':param_1', $parsedCriteria[0]->operand);
+		$this->assertEquals('param_1', $parsedCriteria[0]->parameterName);
 		$this->assertEquals('value1', $parsedCriteria[0]->value);
 
 		$this->assertEquals('field2', $parsedCriteria[1]->field);
 		$this->assertEquals('!=', $parsedCriteria[1]->operator);
-		$this->assertEquals(':param2', $parsedCriteria[1]->operand);
-		$this->assertEquals('param2', $parsedCriteria[1]->parameterName);
+		$this->assertEquals(':param_2', $parsedCriteria[1]->operand);
+		$this->assertEquals('param_2', $parsedCriteria[1]->parameterName);
 		$this->assertEquals('value2', $parsedCriteria[1]->value);
 	}
 
@@ -52,8 +52,8 @@ final class CriteriaParserTest extends TestCase
 		$this->assertCount(1, $parsedCriteria);
 		$this->assertEquals('field', $parsedCriteria[0]->field);
 		$this->assertEquals('=', $parsedCriteria[0]->operator);
-		$this->assertEquals(':param1', $parsedCriteria[0]->operand);
-		$this->assertEquals('param1', $parsedCriteria[0]->parameterName);
+		$this->assertEquals(':param_1', $parsedCriteria[0]->operand);
+		$this->assertEquals('param_1', $parsedCriteria[0]->parameterName);
 		$this->assertEquals('', $parsedCriteria[0]->value);
 	}
 
@@ -72,8 +72,8 @@ final class CriteriaParserTest extends TestCase
 		$this->assertCount(1, $parsedCriteria);
 		$this->assertEquals('field1', $parsedCriteria[0]->field);
 		$this->assertEquals('=', $parsedCriteria[0]->operator);
-		$this->assertEquals(':param1', $parsedCriteria[0]->operand);
-		$this->assertEquals('param1', $parsedCriteria[0]->parameterName);
+		$this->assertEquals(':param_1', $parsedCriteria[0]->operand);
+		$this->assertEquals('param_1', $parsedCriteria[0]->parameterName);
 		$this->assertEquals('value1', $parsedCriteria[0]->value);
 	}
 
@@ -86,14 +86,14 @@ final class CriteriaParserTest extends TestCase
 
 		$this->assertEquals('field1', $parsedCriteria[0]->field);
 		$this->assertEquals('>', $parsedCriteria[0]->operator);
-		$this->assertEquals(':param1', $parsedCriteria[0]->operand);
-		$this->assertEquals('param1', $parsedCriteria[0]->parameterName);
+		$this->assertEquals(':param_1', $parsedCriteria[0]->operand);
+		$this->assertEquals('param_1', $parsedCriteria[0]->parameterName);
 		$this->assertEquals('value1', $parsedCriteria[0]->value);
 
 		$this->assertEquals('field2', $parsedCriteria[1]->field);
 		$this->assertEquals('<', $parsedCriteria[1]->operator);
-		$this->assertEquals(':param2', $parsedCriteria[1]->operand);
-		$this->assertEquals('param2', $parsedCriteria[1]->parameterName);
+		$this->assertEquals(':param_2', $parsedCriteria[1]->operand);
+		$this->assertEquals('param_2', $parsedCriteria[1]->parameterName);
 		$this->assertEquals('value2', $parsedCriteria[1]->value);
 	}
 
@@ -103,7 +103,7 @@ final class CriteriaParserTest extends TestCase
 		$parsedCriteria = iterator_to_array(CriteriaParser::parse($criteria));
 
 		$this->assertCount(1, $parsedCriteria);
-		$this->assertEquals('field1 = :param1', $parsedCriteria[0]->getExpression());
+		$this->assertEquals('field1 = :param_1', $parsedCriteria[0]->getExpression());
 	}
 
 }

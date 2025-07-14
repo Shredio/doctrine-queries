@@ -77,7 +77,14 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * @param bool $distinct Whether to return distinct results
 	 * @return QueryBuilder Configured query builder
 	 */
-	public function create(string $entity, array $select = [], array $criteria = [], array $orderBy = [], bool $distinct = false): QueryBuilder
+	public function create(
+		string $entity,
+		array $select = [],
+		array $criteria = [],
+		array $orderBy = [],
+		bool $distinct = false,
+		string $alias = 'e0',
+	): QueryBuilder
 	{
 		$em = $this->managerRegistry->getManagerForClass($entity);
 		assert($em instanceof EntityManagerInterface);
@@ -85,12 +92,12 @@ final readonly class SimplifiedQueryBuilderFactory
 		$metadata = $em->getClassMetadata($entity);
 
 		$qb = $em->createQueryBuilder();
-		$qb->from($entity, 'e0');
+		$qb->from($entity, $alias);
 
 		if ($select) {
-			$qb->select($this->selectParser->getFromSelect($metadata, $select, 'e0'));
+			$qb->select($this->selectParser->getFromSelect($metadata, $select, $alias));
 		} else {
-			$qb->select($this->selectParser->getForAll($metadata, 'e0'));
+			$qb->select($this->selectParser->getForAll($metadata, $alias));
 		}
 
 		if ($distinct) {
@@ -98,7 +105,7 @@ final readonly class SimplifiedQueryBuilderFactory
 		}
 
 		if ($criteria) {
-			$this->applyCriteria($qb, $criteria, 'e0');
+			$this->applyCriteria($qb, $criteria, $alias);
 		}
 
 		if ($orderBy) {
@@ -115,7 +122,7 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @return QueryBuilder Query builder configured for counting
 	 */
-	public function createCount(string $entity, array $criteria = []): QueryBuilder
+	public function createCount(string $entity, array $criteria = [], string $alias = 'e0'): QueryBuilder
 	{
 		$em = $this->managerRegistry->getManagerForClass($entity);
 		assert($em instanceof EntityManagerInterface);
@@ -123,7 +130,7 @@ final readonly class SimplifiedQueryBuilderFactory
 		$metadata = $em->getClassMetadata($entity);
 
 		$qb = $em->createQueryBuilder();
-		$qb->from($entity, 'e0');
+		$qb->from($entity, $alias);
 
 		$fieldName = $metadata->getIdentifierFieldNames()[0] ?? null;
 		if ($fieldName === null) {
@@ -133,9 +140,9 @@ final readonly class SimplifiedQueryBuilderFactory
 			));
 		}
 
-		$qb->select(sprintf('COUNT(e0.%s)', $fieldName));
+		$qb->select(sprintf('COUNT(%s.%s)', $alias, $fieldName));
 
-		$this->applyCriteria($qb, $criteria, 'e0');
+		$this->applyCriteria($qb, $criteria, $alias);
 
 		return $qb;
 	}
@@ -147,15 +154,15 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @return QueryBuilder Query builder configured for deletion
 	 */
-	public function createDelete(string $entity, array $criteria = []): QueryBuilder
+	public function createDelete(string $entity, array $criteria = [], string $alias = 'e0'): QueryBuilder
 	{
 		$em = $this->managerRegistry->getManagerForClass($entity);
 		assert($em instanceof EntityManagerInterface);
 
 		$qb = $em->createQueryBuilder();
-		$qb->delete($entity, 'e0');
+		$qb->delete($entity, $alias);
 
-		$this->applyCriteria($qb, $criteria, 'e0');
+		$this->applyCriteria($qb, $criteria, $alias);
 
 		return $qb;
 	}
@@ -169,7 +176,7 @@ final readonly class SimplifiedQueryBuilderFactory
 	 */
 	private function applyCriteria(QueryBuilder $qb, array $criteria, string $alias): void
 	{
-		foreach (CriteriaParser::parse($criteria) as $parsed) {
+		foreach (CriteriaParser::parse($criteria, $alias) as $parsed) {
 			$qb->andWhere($alias . '.' . $parsed->getExpression());
 
 			if ($parsed->parameterName) {

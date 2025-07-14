@@ -96,6 +96,10 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findBy() - entity Tests\Entity\Article does not have a field or association named `$symbol_id`.',
 				97,
 			],
+			[
+				'Call to method Shredio\DoctrineQueries\DoctrineQueries::subQuery() - entity Tests\Entity\Article does not have a field or association named `$authorId`.',
+				102,
+			]
 		]);
 	}
 

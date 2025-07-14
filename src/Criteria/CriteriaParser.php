@@ -5,6 +5,7 @@ namespace Shredio\DoctrineQueries\Criteria;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use InvalidArgumentException;
+use Shredio\DoctrineQueries\Query\SubQuery;
 
 /**
  * @internal
@@ -21,9 +22,15 @@ final readonly class CriteriaParser
 	 * @param array<string, mixed> $criteria
 	 * @return iterable<ParsedCriteria>
 	 */
-	public static function parse(array $criteria, string $parameterName = 'param'): iterable
+	public static function parse(array $criteria, string $parameterName = 'param', string $suffix = ''): iterable
 	{
 		$index = 0;
+		$subQueryIndex = 0;
+
+		if ($suffix !== '') {
+			$parameterName .= '_' . $suffix;
+		}
+		$parameterName .= '_';
 
 		foreach ($criteria as $field => $value) {
 			if ($field === '') {
@@ -33,6 +40,10 @@ final readonly class CriteriaParser
 			[$field, $operator] = self::parseOperator($field);
 			$operand = '%s';
 			$parameters = null;
+
+			if ($value instanceof SubQuery) {
+				$value = $value->build(sprintf('s%d', $subQueryIndex++));
+			}
 
 			if ($value instanceof QueryBuilder || $value instanceof Query) {
 				$dql = $value->getDQL();

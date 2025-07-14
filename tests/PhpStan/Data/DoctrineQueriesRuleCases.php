@@ -97,6 +97,11 @@ class DoctrineQueriesRuleCases
 		$this->scalarQueries->findBy(Article::class, $dynamicCriteria);
 	}
 
+	public function invalidSubQueryField(): void
+	{
+		$this->doctrineQueries->subQuery(Article::class, ['authorId' => 1]);
+	}
+
 	public function validCases(): void
 	{
 		$this->scalarQueries->findBy(Article::class, ['title' => 'Test']);
@@ -108,6 +113,7 @@ class DoctrineQueriesRuleCases
 		$this->doctrineQueries->deleteBy(Article::class, ['symbol' => null]);
 		$this->objectQueries->findBy(Article::class, ['author' => 1]);
 		$this->objectQueries->findOneBy(Article::class, ['author' => 1]);
+		$this->doctrineQueries->subQuery(Article::class, ['author' => 1]);
 	}
 
 	public function validDynamicArgumentBuilder(): void

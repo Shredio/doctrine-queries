@@ -61,6 +61,20 @@ final class DoctrineQueriesTest extends TestCase
 		$this->assertSame('John Doe', $results[1]['author_name']);
 	}
 
+	public function testSubQuery(): void
+	{
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+
+		// Create a sub-query to find articles by a specific author
+		$authorId = 1; // Assuming this author exists in the fixtures
+		$subQuery = $queries->subQuery(Article::class, ['author' => $authorId]);
+
+		// Use the sub-query to find articles
+		$results = $queries->objects->findBy(Article::class, ['author' => $subQuery])->asArray();
+
+		$this->assertCount(2, $results); // Assuming the author has 2 articles in fixtures
+	}
 	private function getQueries(): DoctrineQueries
 	{
 		return new DoctrineQueries(new TestManagerRegistry($this->getEntityManager()));
