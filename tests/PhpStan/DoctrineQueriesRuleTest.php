@@ -131,6 +131,18 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 			[
 				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findPairsBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
 				115,
+			],
+			[
+				'Argument #3 (orderBy) must be passed as a named argument. Position is not guaranteed.',
+				120,
+			],
+			[
+				'Argument #4 (select) must be passed as a named argument. Position is not guaranteed.',
+				120,
+			],
+			[
+				'Argument #5 (joinConfig) must be passed as a named argument. Position is not guaranteed.',
+				120,
 			]
 		]);
 	}

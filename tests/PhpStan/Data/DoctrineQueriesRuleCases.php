@@ -40,12 +40,12 @@ class DoctrineQueriesRuleCases
 
 	public function invalidOrderByField(): void
 	{
-		$this->scalarQueries->findBy(Article::class, [], ['invalidOrderField' => 'ASC']);
+		$this->scalarQueries->findBy(Article::class, orderBy: ['invalidOrderField' => 'ASC']);
 	}
 
 	public function invalidSelectField(): void
 	{
-		$this->arrayQueries->findBy(Article::class, [], [], ['invalidSelectField']);
+		$this->arrayQueries->findBy(Article::class, select: ['invalidSelectField']);
 	}
 
 	public function invalidFieldArgument(): void
@@ -115,11 +115,16 @@ class DoctrineQueriesRuleCases
 		$this->doctrineQueries->scalars->findPairsBy(Article::class, 'id', 'id', joinConfig: ['author.rol' => 'inner']);
 	}
 
+	public function requireNamedArguments(): void
+	{
+		$this->scalarQueries->findBy(Article::class, ['title' => 'Test'], ['title' => 'ASC'], ['title'], 'inner');
+	}
+
 	public function validCases(): void
 	{
 		$this->scalarQueries->findBy(Article::class, ['title' => 'Test']);
-		$this->scalarQueries->findBy(Article::class, [], ['title' => 'ASC']);
-		$this->arrayQueries->findBy(Article::class, [], [], ['title', 'content']);
+		$this->scalarQueries->findBy(Article::class, orderBy: ['title' => 'ASC']);
+		$this->arrayQueries->findBy(Article::class, select: ['title', 'content']);
 		$this->scalarQueries->findSingleColumnValueBy(Article::class, 'title', []);
 		$this->doctrineQueries->countBy(Article::class, ['symbol' => null]);
 		$this->doctrineQueries->existsBy(Article::class, ['id' => 1]);

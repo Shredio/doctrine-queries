@@ -30,6 +30,12 @@ use Shredio\DoctrineQueries\Select\QueryType;
 final readonly class DoctrineQueriesRule implements Rule
 {
 
+	private const array RequireNamedArguments = [
+		'orderBy' => true,
+		'select' => true,
+		'joinConfig' => true,
+	];
+
 	private const array Map = [
 		ScalarQueries::class => [
 			'findBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select', 4 => 'joinConfig'],
@@ -213,6 +219,16 @@ final readonly class DoctrineQueriesRule implements Rule
 				return null;
 			};
 
+			if (isset(self::RequireNamedArguments[$argumentName])) {
+				if ($arg->name === null) {
+					$errors[] = RuleErrorBuilder::message(
+						sprintf('Argument #%d (%s) must be passed as a named argument. Position is not guaranteed.', $argumentPos + 1, $argumentName),
+					)
+						->identifier('doctrineQueries.requireNamedArgument')
+						->build();
+				}
+			}
+
 			if ($argumentName === 'criteria') {
 				$constantArrayError = $this->validateConstantArray($argType, $argumentPos, 'criteria');
 				if ($constantArrayError !== null) {
@@ -265,6 +281,10 @@ final readonly class DoctrineQueriesRule implements Rule
 			}
 
 			if ($argumentName === 'joinConfig') {
+				if ($argType->isString()->yes()) {
+					continue;
+				}
+
 				$constantArrayError = $this->validateConstantArray($argType, $argumentPos, 'joinConfig');
 				if ($constantArrayError !== null) {
 					$errors[] = $constantArrayError;
