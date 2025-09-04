@@ -6,6 +6,7 @@ use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Tests\Entity\Article;
 use int;
 use Tests\Entity\ArticleNullableAuthor;
+use Tests\Entity\FavouritePrompt;
 use function PHPStan\Testing\assertType;
 
 class ArrayQueriesCases
@@ -168,6 +169,12 @@ class ArrayQueriesCases
 	public function testNullableRelationPrefixFindByRelationWithWildcardRelationSelectionAsArray(ArrayQueries $queries): void
 	{
 		assertType('list<array{id: int, title: string, content: string, symbol: Tests\\Doctrine\\Symbol|null, createdAt: DateTimeImmutable, type: Tests\\Entity\\Enum\\ArticleType, author_id: int|null, author_name: string|null, author_role: int|null}>', $queries->findBy(ArticleNullableAuthor::class, select: ['*', 'author.**' => 'author_'])->asArray());
+	}
+
+	public function testFindColumnValuesByCompositeKey(ArrayQueries $queries): void
+	{
+		assertType('list<int>', $queries->findColumnValuesBy(FavouritePrompt::class, 'prompt', ['account' => 1])->asArray());
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseColumnValues<int>', $queries->findColumnValuesBy(FavouritePrompt::class, 'prompt', ['account' => 1]));
 	}
 
 }

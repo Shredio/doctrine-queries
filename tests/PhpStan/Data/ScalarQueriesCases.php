@@ -5,6 +5,7 @@ namespace Tests\PhpStan\Data;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Tests\Entity\Article;
 use Tests\Entity\ArticleNullableAuthor;
+use Tests\Entity\FavouritePrompt;
 use function PHPStan\Testing\assertType;
 
 class ScalarQueriesCases
@@ -186,6 +187,12 @@ class ScalarQueriesCases
 	public function testNullableRelationPrefixFindByRelationWithWildcardRelationSelectionAsArray(ScalarQueries $queries): void
 	{
 		assertType('list<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author_id: int|null, author_name: string|null, author_role: int|null}>', $queries->findBy(ArticleNullableAuthor::class, select: ['*', 'author.**' => 'author_'])->asArray());
+	}
+
+	public function testFindColumnValuesByCompositeKey(ScalarQueries $queries): void
+	{
+		assertType('list<int>', $queries->findColumnValuesBy(FavouritePrompt::class, 'prompt', ['account' => 1])->asArray());
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseColumnValues<int>', $queries->findColumnValuesBy(FavouritePrompt::class, 'prompt', ['account' => 1]));
 	}
 
 }
