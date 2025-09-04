@@ -8,6 +8,7 @@ use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
 use Shredio\DoctrineQueries\Result\DatabaseIndexedResults;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
+use Shredio\DoctrineQueries\Select\QueryType;
 
 /**
  * Query executor for returning results as associative arrays.
@@ -48,6 +49,11 @@ final readonly class ArrayQueries extends BaseQueries
 	 */
 	private const int HydrationMode = AbstractQuery::HYDRATE_ARRAY;
 
+	protected function getQueryType(): QueryType
+	{
+		return QueryType::Array;
+	}
+
 	/**
 	 * Finds entities by criteria and returns them as associative arrays.
 	 * 
@@ -55,12 +61,19 @@ final readonly class ArrayQueries extends BaseQueries
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseResults<array<string, ValueType>> Collection of array results
 	 */
-	public function findBy(string $entity, array $criteria = [], array $orderBy = [], array $select = []): DatabaseResults
+	public function findBy(
+		string $entity,
+		array $criteria = [],
+		array $orderBy = [],
+		array $select = [],
+		array|string $joinConfig = 'left',
+	): DatabaseResults
 	{
 		/** @var Query<int, array<string, ValueType>> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy, $select)->getQuery();
+		$query = $this->createFindBy($entity, $criteria, $orderBy, $select, $joinConfig)->getQuery();
 
 		return new DatabaseResults($query->setHydrationMode(self::HydrationMode));
 	}
@@ -72,12 +85,19 @@ final readonly class ArrayQueries extends BaseQueries
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return array<string, ValueType>|null
 	 */
-	public function findOneBy(string $entity, array $criteria = [], array $orderBy = [], array $select = []): ?array
+	public function findOneBy(
+		string $entity,
+		array $criteria = [],
+		array $orderBy = [],
+		array $select = [],
+		array|string $joinConfig = 'left',
+	): ?array
 	{
 		/** @var Query<int, array<string, ValueType>> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy, $select)->getQuery();
+		$query = $this->createFindBy($entity, $criteria, $orderBy, $select, $joinConfig)->getQuery();
 		$query->setHydrationMode(self::HydrationMode);
 		$query->setMaxResults(1);
 
@@ -92,9 +112,17 @@ final readonly class ArrayQueries extends BaseQueries
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseIndexedResults<mixed, array<string, ValueType>> Collection of array results
 	 */
-	public function findIndexedBy(string $entity, string $indexField, array $criteria = [], array $orderBy = [], array $select = []): DatabaseIndexedResults
+	public function findIndexedBy(
+		string $entity,
+		string $indexField,
+		array $criteria = [],
+		array $orderBy = [],
+		array $select = [],
+		array|string $joinConfig = 'left',
+	): DatabaseIndexedResults
 	{
 		$unsetIndexField = false;
 		if (isset($select[$indexField])) {
@@ -105,26 +133,9 @@ final readonly class ArrayQueries extends BaseQueries
 		}
 
 		/** @var Query<int, array<string, ValueType>> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy, $select)->getQuery();
+		$query = $this->createFindBy($entity, $criteria, $orderBy, $select, $joinConfig)->getQuery();
 
 		return new DatabaseIndexedResults($query->setHydrationMode(self::HydrationMode), $indexField, $unsetIndexField);
-	}
-
-	/**
-	 * Finds entities by criteria including relations and returns them as arrays.
-	 * 
-	 * @param class-string $entity The entity class to query
-	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
-	 * @param string[] $select Fields to select
-	 * @return DatabaseResults<array<string, ValueType>> Collection of array results
-	 */
-	public function findByWithRelations(string $entity, array $criteria = [], array $orderBy = [], array $select = []): DatabaseResults
-	{
-		/** @var Query<int, array<string, ValueType>> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy, $select, withRelations: true)->getQuery();
-
-		return new DatabaseResults($query->setHydrationMode(self::HydrationMode));
 	}
 
 	/**
@@ -135,12 +146,20 @@ final readonly class ArrayQueries extends BaseQueries
 	 * @param string $value The field to use as values
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabasePairs<array-key, ValueType> Key-value pairs collection
 	 */
-	public function findPairsBy(string $entity, string $key, string $value, array $criteria = [], array $orderBy = []): DatabasePairs
+	public function findPairsBy(
+		string $entity,
+		string $key,
+		string $value,
+		array $criteria = [],
+		array $orderBy = [],
+		array|string $joinConfig = 'left',
+	): DatabasePairs
 	{
 		/** @var Query<int, array{ k: array-key, v: ValueType }> $query */
-		$query = $this->createFindPairsBy($entity, $key, $value, $criteria, $orderBy)->getQuery();
+		$query = $this->createFindPairsBy($entity, $key, $value, $criteria, $orderBy, $joinConfig)->getQuery();
 
 		return new DatabasePairs($query->setHydrationMode(self::HydrationMode));
 	}
@@ -153,12 +172,20 @@ final readonly class ArrayQueries extends BaseQueries
 	 * @param array<string, mixed> $criteria Optional criteria to filter the query.
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Optional ordering of the results.
 	 * @param bool $distinct Whether to return distinct values. USE as a named argument.
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseColumnValues<ValueType>
 	 */
-	public function findColumnValuesBy(string $entity, string $field, array $criteria = [], array $orderBy = [], bool $distinct = false): DatabaseColumnValues
+	public function findColumnValuesBy(
+		string $entity,
+		string $field,
+		array $criteria = [],
+		array $orderBy = [],
+		bool $distinct = false,
+		array|string $joinConfig = 'left',
+	): DatabaseColumnValues
 	{
 		/** @var Query<int, array{ v: ValueType }> $query */
-		$query = $this->createFindColumnValues($entity, $field, $criteria, $orderBy, $distinct)->getQuery();
+		$query = $this->createFindColumnValues($entity, $field, $criteria, $orderBy, $distinct, $joinConfig)->getQuery();
 
 		return new DatabaseColumnValues($query->setHydrationMode(self::HydrationMode));
 	}

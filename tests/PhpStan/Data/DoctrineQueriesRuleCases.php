@@ -102,6 +102,19 @@ class DoctrineQueriesRuleCases
 		$this->doctrineQueries->subQuery(Article::class, ['authorId' => 1]);
 	}
 
+	public function invalidJoinConfig(): void
+	{
+		$this->doctrineQueries->arrays->findBy(Article::class, joinConfig: ['auth' => 'inner']);
+		$this->doctrineQueries->arrays->findOneBy(Article::class, joinConfig: ['author.rol' => 'inner']);
+		$this->doctrineQueries->arrays->findIndexedBy(Article::class, 'id', joinConfig: ['auth' => 'inner']);
+		$this->doctrineQueries->arrays->findPairsBy(Article::class, 'id', 'id', joinConfig: ['author.rol' => 'inner']);
+
+		$this->doctrineQueries->scalars->findBy(Article::class, joinConfig: ['auth' => 'inner']);
+		$this->doctrineQueries->scalars->findOneBy(Article::class, joinConfig: ['author.rol' => 'inner']);
+		$this->doctrineQueries->scalars->findIndexedBy(Article::class, 'id', joinConfig: ['auth' => 'inner']);
+		$this->doctrineQueries->scalars->findPairsBy(Article::class, 'id', 'id', joinConfig: ['author.rol' => 'inner']);
+	}
+
 	public function validCases(): void
 	{
 		$this->scalarQueries->findBy(Article::class, ['title' => 'Test']);
@@ -126,6 +139,19 @@ class DoctrineQueriesRuleCases
 		}
 
 		$this->scalarQueries->findBy(Article::class, $dynamicCriteria);
+	}
+
+	public function validJoinConfig(): void
+	{
+		$this->doctrineQueries->arrays->findBy(Article::class, joinConfig: ['author' => 'inner', 'author.role' => 'left']);
+		$this->doctrineQueries->arrays->findOneBy(Article::class, joinConfig: ['author' => 'inner', 'author.role' => 'left']);
+		$this->doctrineQueries->arrays->findIndexedBy(Article::class, 'id', joinConfig: ['author' => 'inner', 'author.role' => 'left']);
+		$this->doctrineQueries->arrays->findPairsBy(Article::class, 'id', 'id', joinConfig: ['author' => 'inner', 'author.role' => 'left']);
+
+		$this->doctrineQueries->scalars->findBy(Article::class, joinConfig: ['author' => 'inner', 'author.role' => 'left']);
+		$this->doctrineQueries->scalars->findOneBy(Article::class, joinConfig: ['author' => 'inner', 'author.role' => 'left']);
+		$this->doctrineQueries->scalars->findIndexedBy(Article::class, 'id', joinConfig: ['author' => 'inner', 'author.role' => 'left']);
+		$this->doctrineQueries->scalars->findPairsBy(Article::class, 'id', 'id', joinConfig: ['author' => 'inner', 'author.role' => 'left']);
 	}
 
 }

@@ -5,7 +5,9 @@ namespace Shredio\DoctrineQueries\Criteria;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use InvalidArgumentException;
+use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 use Shredio\DoctrineQueries\Query\SubQuery;
+use Shredio\DoctrineQueries\Select\Field;
 
 /**
  * @internal
@@ -22,11 +24,15 @@ final readonly class CriteriaParser
 	 * @param array<string, mixed> $criteria
 	 * @return iterable<ParsedCriteria>
 	 */
-	public static function parse(array $criteria, string $parameterName = 'param', string $suffix = ''): iterable
+	public static function parse(
+		array $criteria,
+		string $suffix = '',
+		?QueryMetadata $queryMetadata = null,
+	): iterable
 	{
 		$index = 0;
-		$subQueryIndex = 0;
 
+		$parameterName = 'param';
 		if ($suffix !== '') {
 			$parameterName .= '_' . $suffix;
 		}
@@ -37,12 +43,16 @@ final readonly class CriteriaParser
 				throw new InvalidArgumentException('Field cannot be empty');
 			}
 
-			[$field, $operator] = self::parseOperator($field);
+			[$field, $operator] = self::parseSingleField($field);
 			$operand = '%s';
 			$parameters = null;
 
 			if ($value instanceof SubQuery) {
-				$value = $value->build(sprintf('s%d', $subQueryIndex++));
+				if ($queryMetadata === null) {
+					throw new InvalidArgumentException('QueryMetadata is required when using SubQuery');
+				}
+
+				$value = $value->build($queryMetadata);
 			}
 
 			if ($value instanceof QueryBuilder || $value instanceof Query) {
@@ -103,15 +113,15 @@ final readonly class CriteriaParser
 	}
 
 	/**
-	 * @return array{string, string}
+	 * @return array{Field, string}
 	 */
-	private static function parseOperator(string $field): array
+	public static function parseSingleField(string $field): array
 	{
 		if (($pos = strpos($field, ' ')) !== false) {
-			return [substr($field, 0, $pos), substr($field, $pos + 1)];
+			return [new Field(substr($field, 0, $pos)), substr($field, $pos + 1)];
 		}
 
-		return [$field, '='];
+		return [new Field($field), '='];
 	}
 
 	/**

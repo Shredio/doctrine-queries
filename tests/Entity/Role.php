@@ -5,10 +5,9 @@ namespace Tests\Entity;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;
-use Doctrine\ORM\Mapping\ManyToOne;
 
 #[Entity]
-class Author
+class Role
 {
 
 	public function __construct(
@@ -17,8 +16,6 @@ class Author
 		private int $id,
 		#[Column(type: 'string', length: 120)]
 		private string $name,
-		#[ManyToOne(targetEntity: Role::class)]
-		private ?Role $role = null,
 	) {}
 
 	public function getId(): int
@@ -29,11 +26,6 @@ class Author
 	public function getName(): string
 	{
 		return $this->name;
-	}
-
-	public function getRole(): ?Role
-	{
-		return $this->role;
 	}
 
 }

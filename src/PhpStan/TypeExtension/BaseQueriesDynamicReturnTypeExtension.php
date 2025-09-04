@@ -2,12 +2,9 @@
 
 namespace Shredio\DoctrineQueries\PhpStan\TypeExtension;
 
-use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\MethodReflection;
-use PHPStan\Type\Constant\ConstantArrayType;
-use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\DynamicMethodReturnTypeExtension;
 use PHPStan\Type\Generic\GenericObjectType;
 use PHPStan\Type\IntegerType;
@@ -16,13 +13,13 @@ use PHPStan\Type\StringType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
 use PHPStan\Type\UnionType;
-use Shredio\DoctrineQueries\PhpStan\CriteriaItemType;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineService;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory;
 use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
 use Shredio\DoctrineQueries\Result\DatabaseIndexedResults;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
+use Shredio\DoctrineQueries\Select\QueryType;
 
 abstract readonly class BaseQueriesDynamicReturnTypeExtension implements DynamicMethodReturnTypeExtension
 {
@@ -31,7 +28,6 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 		'findBy' => true,
 		'findOneBy' => true,
 		'findIndexedBy' => true,
-		'findByWithRelations' => true,
 		'findPairsBy' => true,
 		'findColumnValuesBy' => true,
 		'findSingleColumnValueBy' => true,
@@ -44,7 +40,7 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 		$this->service = $phpStanDoctrineServiceFactory->create();
 	}
 
-	abstract protected function isScalar(): bool;
+	abstract protected function getQueryType(): QueryType;
 
 	public function isMethodSupported(MethodReflection $methodReflection): bool
 	{
@@ -71,187 +67,76 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 
 		$methodName = $methodReflection->getName();
 
+		$context = new DynamicReturnTypeContext(
+			$args,
+			$scope,
+			$entity,
+			$this->getQueryType(),
+			$this->service,
+		);
+
 		if ($methodName === 'findBy') {
-			return $this->fromFindBy($args, $scope, $entity);
+			return $this->fromFindBy($context);
 		}
 
 		if ($methodName === 'findIndexedBy') {
-			return $this->fromFindIndexedBy($args, $scope, $entity);
-		}
-
-		if ($methodName === 'findByWithRelations') {
-			return $this->fromFindByWithRelations($args, $scope, $entity);
+			return $this->fromFindIndexedBy($context);
 		}
 
 		if ($methodName === 'findPairsBy') {
-			return $this->fromFindPairsBy($args, $scope, $entity);
+			return $this->fromFindPairsBy($context);
 		}
 
 		if ($methodName === 'findColumnValuesBy') {
-			return $this->fromFindColumnValuesBy($args, $scope, $entity);
+			return $this->fromFindColumnValuesBy($context);
 		}
 
 		if ($methodName === 'findOneBy') {
-			return $this->fromFindOneBy($args, $scope, $entity);
+			return $this->fromFindOneBy($context);
 		}
 
-		return $this->fromFindSingleColumnValueBy($args, $scope, $entity);
+		return $this->fromFindSingleColumnValueBy($context);
 	}
 
-	/**
-	 * @param non-empty-array<Arg> $args
-	 * @param class-string $entityClassName
-	 */
-	private function fromFindBy(
-		array $args,
-		Scope $scope,
-		string $entityClassName,
-	): GenericObjectType
+	private function fromFindBy(DynamicReturnTypeContext $context): GenericObjectType
 	{
-		$criteria = $this->getCriteria($scope, $args[1] ?? null);
-		$select = $this->getSelect($scope, $entityClassName, $args[3] ?? null);
-
-		$keyTypes = [];
-		$valueTypes = [];
-
-		foreach ($select as [$field, $alias]) {
-			$keyTypes[] = new ConstantStringType($alias);
-			$valueTypes[] = $this->service->determineTypeByFieldCriteria(
-				$this->createTypeForField($entityClassName, $field),
-				$field,
-				$criteria,
-			);
-		}
+		$criteria = $context->getCriteria(1);
+		$selectType = $context->getSelectType(3, $criteria, 4);
 
 		return new GenericObjectType(DatabaseResults::class, [
-			new ConstantArrayType($keyTypes, $valueTypes),
+			$selectType,
 		]);
 	}
 
-	/**
-	 * @param non-empty-array<Arg> $args
-	 * @param class-string $entityClassName
-	 */
-	private function fromFindOneBy(
-		array $args,
-		Scope $scope,
-		string $entityClassName,
-	): Type
+	private function fromFindOneBy(DynamicReturnTypeContext $context): Type
 	{
-		$criteria = $this->getCriteria($scope, $args[1] ?? null);
-		$select = $this->getSelect($scope, $entityClassName, $args[3] ?? null);
+		$criteria = $context->getCriteria(1);
+		$selectType = $context->getSelectType(3, $criteria, 4);
 
-		$keyTypes = [];
-		$valueTypes = [];
-
-		foreach ($select as [$field, $alias]) {
-			$keyTypes[] = new ConstantStringType($alias);
-			$valueTypes[] = $this->service->determineTypeByFieldCriteria(
-				$this->createTypeForField($entityClassName, $field),
-				$field,
-				$criteria,
-			);
-		}
-
-		return TypeCombinator::addNull(new ConstantArrayType($keyTypes, $valueTypes));
+		return TypeCombinator::addNull($selectType);
 	}
 
-	/**
-	 * @param non-empty-array<Arg> $args
-	 * @param class-string $entityClassName
-	 */
-	private function fromFindIndexedBy(
-		array $args,
-		Scope $scope,
-		string $entityClassName,
-	): GenericObjectType
+	private function fromFindIndexedBy(DynamicReturnTypeContext $context): GenericObjectType
 	{
-		$criteria = $this->getCriteria($scope, $args[2] ?? null);
-		$select = $this->getSelect($scope, $entityClassName, $args[4] ?? null);
-
-		$keyTypes = [];
-		$valueTypes = [];
-
-		foreach ($select as [$field, $alias]) {
-			$keyTypes[] = new ConstantStringType($alias);
-			$valueTypes[] = $this->service->determineTypeByFieldCriteria(
-				$this->createTypeForField($entityClassName, $field),
-				$field,
-				$criteria,
-			);
-		}
-
-		$indexField = $this->service->tryGetSingleStringFromType($scope->getType($args[1]->value));
-		if ($indexField === null) {
-			$indexType = new MixedType();
-		} else {
-			$indexType = $this->service->determineTypeByFieldCriteria(
-				$this->createTypeForField($entityClassName, $indexField),
-				$indexField,
-				$criteria,
-			);
-		}
+		$criteria = $context->getCriteria(2);
+		$selectType = $context->getSelectType(4, $criteria, 5);
+		$indexType = $context->tryToCreateTypeFromConstantType(1, $criteria);
 
 		return new GenericObjectType(DatabaseIndexedResults::class, [
 			$indexType,
-			new ConstantArrayType($keyTypes, $valueTypes),
+			$selectType,
 		]);
 	}
 
-	/**
-	 * @param non-empty-array<Arg> $args
-	 * @param class-string $entityClassName
-	 */
-	private function fromFindByWithRelations(
-		array $args,
-		Scope $scope,
-		string $entityClassName,
-	): GenericObjectType
+	private function fromFindPairsBy(DynamicReturnTypeContext $context): GenericObjectType
 	{
-		$criteria = $this->getCriteria($scope, $args[1] ?? null);
-		$select = $this->getSelect($scope, $entityClassName, $args[3] ?? null, relations: true);
+		$criteria = $context->getCriteria(3);
+		$keyType = $context->tryToCreateTypeFromConstantType(1, $criteria);
+		$valueType = $context->tryToCreateTypeFromConstantType(2, $criteria);
 
-		$keyTypes = [];
-		$valueTypes = [];
-
-		foreach ($select as [$field, $alias]) {
-			$keyTypes[] = new ConstantStringType($alias);
-			$valueTypes[] = $this->service->determineTypeByFieldCriteria(
-				$this->createTypeForField($entityClassName, $field),
-				$field,
-				$criteria,
-			);
+		if ($keyType instanceof MixedType) {
+			$keyType = new UnionType([new StringType(), new IntegerType()]);
 		}
-
-		return new GenericObjectType(DatabaseResults::class, [
-			new ConstantArrayType($keyTypes, $valueTypes),
-		]);
-	}
-
-	/**
-	 * @param non-empty-array<Arg> $args
-	 * @param class-string $entityClassName
-	 */
-	private function fromFindPairsBy(
-		array $args,
-		Scope $scope,
-		string $entityClassName,
-	): ?GenericObjectType
-	{
-		$keyField = $this->service->tryGetSingleStringFromType($scope->getType($args[1]->value));
-		$valueField = $this->service->tryGetSingleStringFromType($scope->getType($args[2]->value));
-
-		if ($keyField === null || $valueField === null) {
-			return null;
-		}
-
-		$criteria = $this->getCriteria($scope, $args[3] ?? null);
-
-
-		$keyType = $this->createTypeForField($entityClassName, $keyField, new UnionType([new StringType(), new IntegerType()]));
-		$valueType = $this->createTypeForField($entityClassName, $valueField);
-
-		$valueType = $this->service->determineTypeByFieldCriteria($valueType, $valueField, $criteria);
 
 		return new GenericObjectType(DatabasePairs::class, [
 			$keyType,
@@ -259,90 +144,22 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 		]);
 	}
 
-	/**
-	 * @param non-empty-array<Arg> $args
-	 * @param class-string $entityClassName
-	 */
-	private function fromFindColumnValuesBy(
-		array $args,
-		Scope $scope,
-		string $entityClassName,
-	): ?GenericObjectType
+	private function fromFindColumnValuesBy(DynamicReturnTypeContext $context): GenericObjectType
 	{
-		$valueField = $this->service->tryGetSingleStringFromType($scope->getType($args[1]->value));
-
-		if ($valueField === null) {
-			return null;
-		}
-
-		$criteria = $this->getCriteria($scope, $args[2] ?? null);
-
-		$valueType = $this->createTypeForField($entityClassName, $valueField);
-		$valueType = $this->service->determineTypeByFieldCriteria($valueType, $valueField, $criteria);
+		$criteria = $context->getCriteria(2);
+		$valueType = $context->tryToCreateTypeFromConstantType(1, $criteria);
 
 		return new GenericObjectType(DatabaseColumnValues::class, [
 			$valueType,
 		]);
 	}
 
-	/**
-	 * @param non-empty-array<Arg> $args
-	 * @param class-string $entityClassName
-	 */
-	private function fromFindSingleColumnValueBy(
-		array $args,
-		Scope $scope,
-		string $entityClassName,
-	): ?Type
+	private function fromFindSingleColumnValueBy(DynamicReturnTypeContext $context): Type
 	{
-		$valueField = $this->service->tryGetSingleStringFromType($scope->getType($args[1]->value));
+		$criteria = $context->getCriteria(2);
+		$valueType = $context->tryToCreateTypeFromConstantType(1, $criteria);
 
-		if ($valueField === null) {
-			return null;
-		}
-
-		$criteria = $this->getCriteria($scope, $args[2] ?? null);
-		$valueType = $this->createTypeForField($entityClassName, $valueField);
-
-		return TypeCombinator::addNull($this->service->determineTypeByFieldCriteria($valueType, $valueField, $criteria)); // always nullable
-	}
-
-	/**
-	 * @return list<CriteriaItemType>
-	 */
-	private function getCriteria(Scope $scope, ?Arg $arg): array
-	{
-		if ($arg === null) {
-			return [];
-		}
-
-		return iterator_to_array($this->service->getCriteriaFromType($scope->getType($arg->value)), false);
-	}
-
-	/**
-	 * @param class-string $entityClassName
-	 * @return list<array{ string, string }>
-	 */
-	private function getSelect(Scope $scope, string $entityClassName, ?Arg $arg, bool $relations = false): array
-	{
-		if ($arg === null) {
-			$select = [];
-			foreach ($this->service->getEntityServiceFor($entityClassName)->getSelectionForAllFields($relations) as $fieldName) {
-				$select[] = [$fieldName, $fieldName];
-			}
-
-			return $select;
-		}
-
-		return $this->service->getFieldsFromSelectArrayType($scope->getType($arg->value));
-	}
-
-	/**
-	 * @param class-string $entityClassName
-	 */
-	private function createTypeForField(string $entityClassName, string $field, Type $defaultType = new MixedType()): Type
-	{
-		return $this->service->getEntityServiceFor($entityClassName)->createTypeForField($field, $this->isScalar()) ?? $defaultType;
+		return TypeCombinator::addNull($valueType); // always nullable
 	}
 
 }

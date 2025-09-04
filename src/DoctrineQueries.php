@@ -5,6 +5,7 @@ namespace Shredio\DoctrineQueries;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use LogicException;
+use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Shredio\DoctrineQueries\Query\ObjectQueries;
 use Shredio\DoctrineQueries\Query\RawQueryBuilder;
@@ -103,12 +104,22 @@ final readonly class DoctrineQueries
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
+	 * @param array<string, 'left'|'inner'> $joinConfig Join configurations (inner is default)
 	 * @return SubQuery Configured query builder for the entity
 	 */
-	public function subQuery(string $entity, array $criteria = [], array $orderBy = [], array $select = []): SubQuery
+	public function subQuery(
+		string $entity,
+		array $criteria = [],
+		array $orderBy = [],
+		array $select = [],
+		array $joinConfig = [],
+	): SubQuery
 	{
 		return new SubQuery(
-			fn (string $alias): QueryBuilder => $this->queryBuilderFactory->create($entity, $select, $criteria, $orderBy, alias: $alias),
+			fn (QueryMetadata $queryMetadata): QueryBuilder =>
+				$this->queryBuilderFactory
+					->withParentQueryMetadata($queryMetadata)
+					->create($entity, $select, $criteria, $orderBy, joinConfig: $joinConfig, queryType: $queryMetadata->queryType),
 		);
 	}
 

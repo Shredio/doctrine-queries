@@ -2,19 +2,17 @@
 
 namespace Tests\Context;
 
-use Doctrine\DBAL\DriverManager;
-use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
-use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\Tools\SchemaTool;
-use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Shredio\DoctrineQueries\Metadata\QueryMetadata;
+use Shredio\DoctrineQueries\Select\QueryType;
 use Tests\Doctrine\Symbol;
-use Tests\Doctrine\SymbolType;
 use Tests\Doctrine\TestManagerRegistry;
 use Tests\Entity\Article;
 use Tests\Entity\Author;
+use Tests\Entity\Role;
 use Tests\Factory\EntityManagerFactory;
 
 trait DoctrineContext
@@ -41,11 +39,10 @@ trait DoctrineContext
 	/**
 	 * @template T of object
 	 * @param class-string<T> $className
-	 * @return ClassMetadata<T>
 	 */
-	private function getMetadata(string $className): ClassMetadata
+	private function getMetadata(string $className, QueryType $queryType): QueryMetadata
 	{
-		return $this->getEntityManager()->getClassMetadata($className);
+		return new QueryMetadata($this->getEntityManager()->getMetadataFactory(), $this->getEntityManager()->getClassMetadata($className), $queryType);
 	}
 
 	private function createManagerRegistry(): TestManagerRegistry
@@ -53,14 +50,30 @@ trait DoctrineContext
 		return new TestManagerRegistry($this->getEntityManager());
 	}
 
-	private function persistFixtures(): void
+	/**
+	 * @param (callable(Author, Role): list<object>|object)|null $factory
+	 */
+	private function persistFixtures(?callable $factory = null): void
 	{
 		$em = $this->getEntityManager();
+		$em->persist($admin = new Role(1, 'Administrator'));
 		$em->persist($author = new Author(1, 'John Doe'));
-		$em->persist($author2 = new Author(2, 'Jane Smith'));
+		$em->persist($author2 = new Author(2, 'Jane Smith', $admin));
 		$em->persist(new Article(1, 'Sample Article', 'This is a sample article.', $author, new Symbol('sym')));
 		$em->persist(new Article(2, 'Another Article', 'This is another article.', $author2));
 		$em->persist(new Article(3, 'Third Article', 'This is the third article.', $author));
+
+		if ($factory) {
+			$entities = $factory($author, $admin);
+			if (is_array($entities)) {
+				foreach ($entities as $entity) {
+					$em->persist($entity);
+				}
+			} else {
+				$em->persist($entities);
+			}
+		}
+
 		$em->flush();
 	}
 

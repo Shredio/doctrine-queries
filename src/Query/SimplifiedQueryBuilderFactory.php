@@ -7,7 +7,13 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use LogicException;
+use Shredio\DoctrineQueries\Allocator\FieldAliasAllocator;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
+use Shredio\DoctrineQueries\Join\JoinParser;
+use Shredio\DoctrineQueries\Metadata\QueryMetadata;
+use Shredio\DoctrineQueries\Select\Field;
+use Shredio\DoctrineQueries\Select\QueryType;
 use Shredio\DoctrineQueries\Select\SelectParser;
 
 /**
@@ -23,31 +29,14 @@ final readonly class SimplifiedQueryBuilderFactory
 
 	public function __construct(
 		private ManagerRegistry $managerRegistry,
-		private SelectParser $selectParser = new SelectParser(),
+		private ?QueryMetadata $parentQueryMetadata = null,
 	)
 	{
 	}
 
-	/**
-	 * Creates a new factory instance with a different select parser.
-	 * 
-	 * @param SelectParser $selectParser The new select parser to use
-	 * @return self New factory instance
-	 */
-	public function withSelectParser(SelectParser $selectParser): self
+	public function withParentQueryMetadata(QueryMetadata $queryMetadata): self
 	{
-		return new self($this->managerRegistry, $selectParser);
-	}
-
-	/**
-	 * Creates a new factory instance with relation handling configuration.
-	 * 
-	 * @param bool $withRelations Whether to include relations in queries
-	 * @return self New factory instance
-	 */
-	public function withRelations(bool $withRelations): self
-	{
-		return new self($this->managerRegistry, $this->selectParser->withRequireRelations($withRelations));
+		return new self($this->managerRegistry, $queryMetadata);
 	}
 
 	/**
@@ -65,7 +54,6 @@ final readonly class SimplifiedQueryBuilderFactory
 		return $em->getClassMetadata($entity);
 	}
 
-
 	/**
 	 * Creates a query builder for the given entity with select, criteria, and ordering.
 	 * 
@@ -75,6 +63,7 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
 	 * @param bool $distinct Whether to return distinct results
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder
 	 */
 	public function create(
@@ -83,34 +72,33 @@ final readonly class SimplifiedQueryBuilderFactory
 		array $criteria = [],
 		array $orderBy = [],
 		bool $distinct = false,
-		string $alias = 'e0',
+		array|string $joinConfig = 'left',
+		QueryType $queryType = QueryType::Object,
 	): QueryBuilder
 	{
 		$em = $this->managerRegistry->getManagerForClass($entity);
 		assert($em instanceof EntityManagerInterface);
 
-		$metadata = $em->getClassMetadata($entity);
+		$metadata = $this->createMetadata($em, $entity, $queryType);
 
 		$qb = $em->createQueryBuilder();
-		$qb->from($entity, $alias);
+		$qb->from($entity, $metadata->getRootAlias());
 
-		if ($select) {
-			$qb->select($this->selectParser->getFromSelect($metadata, $select, $alias));
-		} else {
-			$qb->select($this->selectParser->getForAll($metadata, $alias));
-		}
+		$qb->select(SelectParser::getForSelection($metadata, $select, $queryType));
 
 		if ($distinct) {
 			$qb->distinct();
 		}
 
 		if ($criteria) {
-			$this->applyCriteria($qb, $criteria, $alias);
+			$this->applyCriteria($qb, $criteria, $metadata);
 		}
 
 		if ($orderBy) {
-			$this->applyOrderBy($qb, $orderBy);
+			$this->applyOrderBy($qb, $orderBy, $metadata);
 		}
+
+		$this->applyJoins($qb, $metadata, $joinConfig);
 
 		return $qb;
 	}
@@ -120,29 +108,25 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * 
 	 * @param class-string $entity The entity class to count
 	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Query builder configured for counting
 	 */
-	public function createCount(string $entity, array $criteria = [], string $alias = 'e0'): QueryBuilder
+	public function createCount(string $entity, array $criteria = [], array|string $joinConfig = 'left'): QueryBuilder
 	{
 		$em = $this->managerRegistry->getManagerForClass($entity);
 		assert($em instanceof EntityManagerInterface);
 
-		$metadata = $em->getClassMetadata($entity);
+		$metadata = $this->createMetadata($em, $entity, QueryType::Scalar);
 
 		$qb = $em->createQueryBuilder();
-		$qb->from($entity, $alias);
+		$qb->from($entity, $metadata->getRootAlias());
 
-		$fieldName = $metadata->getIdentifierFieldNames()[0] ?? null;
-		if ($fieldName === null) {
-			throw new \LogicException(sprintf(
-				'Entity "%s" does not have an identifier field defined.',
-				$entity
-			));
-		}
+		$fieldName = $metadata->getSingleIdentifierField(false);
 
-		$qb->select(sprintf('COUNT(%s.%s)', $alias, $fieldName));
+		$qb->select(sprintf('COUNT(%s.%s)', $metadata->rootAlias, $fieldName));
 
-		$this->applyCriteria($qb, $criteria, $alias);
+		$this->applyCriteria($qb, $criteria, $metadata);
+		$this->applyJoins($qb, $metadata, $joinConfig);
 
 		return $qb;
 	}
@@ -152,17 +136,22 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * 
 	 * @param class-string $entity The entity class to delete from
 	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Query builder configured for deletion
 	 */
-	public function createDelete(string $entity, array $criteria = [], string $alias = 'e0'): QueryBuilder
+	public function createDelete(string $entity, array $criteria = [], array|string $joinConfig = 'left'): QueryBuilder
 	{
 		$em = $this->managerRegistry->getManagerForClass($entity);
 		assert($em instanceof EntityManagerInterface);
 
-		$qb = $em->createQueryBuilder();
-		$qb->delete($entity, $alias);
+		$metadata = $this->createMetadata($em, $entity, QueryType::Scalar);
 
-		$this->applyCriteria($qb, $criteria, $alias);
+		$qb = $em->createQueryBuilder();
+		$qb->delete($entity, $metadata->getRootAlias());
+
+		$this->applyCriteria($qb, $criteria, $metadata);
+
+		$this->applyJoins($qb, $metadata, $joinConfig);
 
 		return $qb;
 	}
@@ -172,12 +161,21 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * 
 	 * @param QueryBuilder $qb The query builder to modify
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param string $alias The alias to use for the entity
 	 */
-	private function applyCriteria(QueryBuilder $qb, array $criteria, string $alias): void
+	private function applyCriteria(
+		QueryBuilder $qb,
+		array $criteria,
+		QueryMetadata $metadata,
+	): void
 	{
-		foreach (CriteriaParser::parse($criteria, $alias) as $parsed) {
-			$qb->andWhere($alias . '.' . $parsed->getExpression());
+		$items = CriteriaParser::parse(
+			$criteria,
+			suffix: $metadata->getRootAlias(),
+			queryMetadata: $metadata,
+		);
+
+		foreach ($items as $parsed) {
+			$qb->andWhere($parsed->getExpression($metadata));
 
 			if ($parsed->parameterName) {
 				$qb->setParameter($parsed->parameterName, $parsed->value);
@@ -199,11 +197,25 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * @param QueryBuilder $qb The query builder to modify
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
 	 */
-	private function applyOrderBy(QueryBuilder $qb, array $orderBy): void
+	private function applyOrderBy(QueryBuilder $qb, array $orderBy, QueryMetadata $metadata): void
 	{
 		foreach ($orderBy as $field => $direction) {
-			$qb->addOrderBy(sprintf('e0.%s', $field), $direction);
+			$qb->addOrderBy($metadata->getPathForField(new Field($field)), $direction);
 		}
+	}
+
+	/**
+	 * @param class-string $entity
+	 */
+	private function createMetadata(EntityManagerInterface $em, string $entity, QueryType $queryType): QueryMetadata
+	{
+		if ($this->parentQueryMetadata) {
+			$aliasAllocator = $this->parentQueryMetadata->createAliasAllocatorForChild();
+		} else {
+			$aliasAllocator = new FieldAliasAllocator();
+		}
+
+		return new QueryMetadata($em->getMetadataFactory(), $em->getClassMetadata($entity), $queryType, $aliasAllocator); // @phpstan-ignore argument.type
 	}
 
 	/**
@@ -219,6 +231,52 @@ final readonly class SimplifiedQueryBuilderFactory
 		assert($em instanceof EntityManagerInterface);
 
 		return $em->getConnection();
+	}
+
+	/**
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
+	 */
+	private function applyJoins(QueryBuilder $qb, QueryMetadata $metadata, array|string $joinConfig): void
+	{
+		$joins = $metadata->getJoins();
+
+		if (is_string($joinConfig)) {
+			$joinFixedType = $joinConfig;
+		} else if ($joinConfig === []) {
+			$joinFixedType = 'left';
+		} else {
+			$joinFixedType = null;
+			$joinConfig = JoinParser::parse($joinConfig);
+		}
+
+		foreach ($joins as $path => $alias) {
+			$pos = strrpos($path, '.');
+
+			if ($pos === false) {
+				$parentAlias = $metadata->getRootAlias();
+				$relation = $path;
+			} else {
+				$parentPath = substr($path, 0, $pos);
+				if (!isset($joins[$parentPath])) {
+					throw new LogicException(sprintf('Parent path "%s" for join "%s" not found.', $parentPath, $path));
+				}
+
+				$parentAlias = $joins[$parentPath];
+				$relation = substr($path, $pos + 1);
+			}
+
+			if ($joinFixedType === null) {
+				$joinType = $joinConfig[$path] ?? 'left';
+			} else {
+				$joinType = $joinFixedType;
+			}
+
+			if ($joinType === 'left') {
+				$qb->leftJoin(sprintf('%s.%s', $parentAlias, $relation), $alias);
+			} else {
+				$qb->innerJoin(sprintf('%s.%s', $parentAlias, $relation), $alias);
+			}
+		}
 	}
 
 }

@@ -2,62 +2,86 @@
 
 namespace Shredio\DoctrineQueries\Select;
 
-use Doctrine\ORM\Mapping\ClassMetadata;
-use Doctrine\ORM\Mapping\ManyToOneAssociationMapping;
-use InvalidArgumentException;
+use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
+use Shredio\DoctrineQueries\Exception\NonUniqueSelectAliasException;
+use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 
 final readonly class SelectParser
 {
 
-	public function __construct(
-		private bool $requireAliases = false,
-		private bool $requireRelations = false,
-	)
-	{
-	}
-
-	public function withRequireAliases(bool $requireAliases): self
-	{
-		return new self($requireAliases, $this->requireRelations);
-	}
-
-	public function withRequireRelations(bool $requireRelations): self
-	{
-		return new self($this->requireAliases, $requireRelations);
-	}
-
 	/**
-	 * @param ClassMetadata<object> $metadata
 	 * @param string[] $fields
-	 * @return list<string>
+	 * @param list<NonUniqueSelectAliasException|FieldNotExistsException>|null $errors
+	 * @return iterable<int, FieldToSelect>
 	 */
-	public function getFromSelect(ClassMetadata $metadata, array $fields, string $entityAlias): array
+	public static function getMetadataForSelection(QueryMetadata $metadata, array $fields, ?array &$errors = null): iterable
 	{
-		$return = [];
+		if ($fields === []) {
+			// Select all fields
+			yield from $metadata->getFieldsToSelect(new Field('*'));
+
+			return;
+		}
+
 		$unique = [];
 
 		foreach ($fields as $field => $alias) {
-			if (is_int($field)) {
-				$field = $alias;
-				$useAlias = $this->requireAliases;
-			} else {
-				$useAlias = true;
+			if (is_int($field)) { // ['field']
+				$field = new Field($alias);
+				$alias = null;
+			} else { // ['field' => 'alias']
+				$field = new Field($field);
 			}
 
-			$assoc = $metadata->hasAssociation($field);
+			try {
+				foreach ($metadata->getFieldsToSelect($field, $alias) as $fieldToSelect) {
+					if (isset($unique[$fieldToSelect->alias])) {
+						$error = new NonUniqueSelectAliasException($fieldToSelect->alias);
+						if ($errors === null) {
+							throw $error;
+						}
 
-			if (isset($unique[$alias])) {
-				throw new InvalidArgumentException(sprintf('Column "%s" is already selected. Please use unique column names.', $alias));
+						$errors[] = $error;
+						continue;
+					}
+
+					$unique[$fieldToSelect->alias] = true;
+
+					yield $fieldToSelect;
+				}
+			} catch (FieldNotExistsException $exception) {
+				if ($errors !== null) {
+					$errors[] = $exception;
+				} else {
+					throw $exception;
+				}
 			}
+		}
+	}
 
-			$unique[$alias] = true;
+	/**
+	 * @param string[] $fields
+	 * @return list<string>
+	 */
+	public static function getForSelection(
+		QueryMetadata $metadata,
+		array $fields,
+		QueryType $queryType,
+	): array
+	{
+		if ($fields === []) {
+			return self::getForAll($metadata, $queryType);
+		}
 
-			if ($assoc) {
-				$return[] = sprintf('IDENTITY(%s.%s) AS %s', $entityAlias, $field, $alias);
-			} else if ($useAlias) {
-				$return[] = sprintf('%s.%s AS %s', $entityAlias, $field, $alias);
+		$return = [];
+
+		foreach (self::getMetadataForSelection($metadata, $fields) as $fieldToSelect) {
+			if ($fieldToSelect->metadata->isAssociation) {
+				$return[] = sprintf('IDENTITY(%s) AS %s', $metadata->getPathForField($fieldToSelect->metadata->field), $fieldToSelect->alias);
+			} else if (self::isAliasRequired($queryType, $fieldToSelect)) {
+				$return[] = sprintf('%s AS %s', $metadata->getPathForField($fieldToSelect->metadata->field), $fieldToSelect->alias);
 			} else {
-				$return[] = sprintf('%s.%s', $entityAlias, $field);
+				$return[] = $metadata->getPathForField($fieldToSelect->metadata->field);
 			}
 		}
 
@@ -65,36 +89,36 @@ final readonly class SelectParser
 	}
 
 	/**
-	 * @param ClassMetadata<object> $metadata
 	 * @return list<string>
 	 */
-	public function getForAll(ClassMetadata $metadata, string $entityAlias): array
+	private static function getForAll(QueryMetadata $metadata, QueryType $queryType): array
 	{
-		if (!$this->requireAliases && !$this->requireRelations) {
-			return [$entityAlias];
+		$rootAlias = $metadata->getRootAlias();
+
+		if (!$queryType->isAliasesRequired()) {
+			return [$rootAlias];
 		}
 
 		$return = [];
 
 		foreach ($metadata->getFieldNames() as $field) {
-			if ($this->requireAliases) {
-				$return[] = sprintf('%s.%s AS %s', $entityAlias, $field, $field);
-			} else {
-				$return[] = sprintf('%s.%s', $entityAlias, $field);
-			}
-		}
-
-		if ($this->requireRelations) {
-			foreach ($metadata->getAssociationMappings() as $mapping) {
-				if (!$mapping instanceof ManyToOneAssociationMapping) {
-					continue;
-				}
-
-				$return[] = sprintf('IDENTITY(%s.%s) AS %s', $entityAlias, $mapping->fieldName, $mapping->fieldName);
-			}
+			$return[] = sprintf('%s.%s AS %s', $rootAlias, $field, $field);
 		}
 
 		return $return;
 	}
-	
+
+	private static function isAliasRequired(QueryType $queryType, FieldToSelect $fieldToSelect): bool
+	{
+		if ($queryType === QueryType::Scalar) {
+			return true;
+		}
+
+		if ($fieldToSelect->metadata->isAssociation) {
+			return true;
+		}
+
+		return $fieldToSelect->metadata->field->name !== $fieldToSelect->alias;
+	}
+
 }

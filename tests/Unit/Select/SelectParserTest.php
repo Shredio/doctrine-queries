@@ -3,6 +3,8 @@
 namespace Tests\Unit\Select;
 
 use InvalidArgumentException;
+use Shredio\DoctrineQueries\Exception\NonUniqueSelectAliasException;
+use Shredio\DoctrineQueries\Select\QueryType;
 use Shredio\DoctrineQueries\Select\SelectParser;
 use Tests\Context\DoctrineContext;
 use Tests\Entity\Article;
@@ -15,19 +17,17 @@ final class SelectParserTest extends TestCase
 
 	public function testSimplySelect(): void
 	{
-		$parser = new SelectParser();
-		$metadata = $this->getMetadata(Article::class);
+		$metadata = $this->getMetadata(Article::class, QueryType::Array);
 
-		$this->assertSame(['a.title', 'a.content AS text', 'IDENTITY(a.author) AS author'], $parser->getFromSelect($metadata, ['title', 'content' => 'text', 'author'], 'a'));
+		$this->assertSame(['e0.title', 'e0.content AS text', 'IDENTITY(e0.author) AS author'], SelectParser::getForSelection($metadata, ['title', 'content' => 'text', 'author'], QueryType::Object));
 	}
 
 	public function testSameColumns(): void
 	{
-		$parser = new SelectParser();
-		$metadata = $this->getMetadata(Article::class);
+		$metadata = $this->getMetadata(Article::class, QueryType::Array);
 
-		$this->expectException(InvalidArgumentException::class);
-		$parser->getFromSelect($metadata, ['title' => 'text', 'content' => 'text'], 'a');
+		$this->expectException(NonUniqueSelectAliasException::class);
+		SelectParser::getForSelection($metadata, ['title' => 'text', 'content' => 'text'], QueryType::Object);
 	}
 
 	protected function setUpDatabase(): bool

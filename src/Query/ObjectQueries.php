@@ -4,6 +4,7 @@ namespace Shredio\DoctrineQueries\Query;
 
 use Shredio\DoctrineQueries\Result\DatabaseResults;
 use Doctrine\ORM\Query;
+use Shredio\DoctrineQueries\Select\QueryType;
 
 /**
  * Query executor for returning entities as objects.
@@ -36,6 +37,11 @@ use Doctrine\ORM\Query;
  */
 final readonly class ObjectQueries extends BaseQueries
 {
+
+	protected function getQueryType(): QueryType
+	{
+		return QueryType::Object;
+	}
 
 	/**
 	 * Finds entities by criteria and returns them as objects.

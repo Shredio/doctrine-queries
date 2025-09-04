@@ -2,25 +2,28 @@
 
 namespace Shredio\DoctrineQueries\PhpStan;
 
-use Doctrine\ORM\Mapping\ClassMetadata;
-use Doctrine\ORM\Mapping\ManyToOneAssociationMapping;
-use InvalidArgumentException;
+use Doctrine\ORM\Mapping\FieldMapping;
 use LogicException;
 use PHPStan\Type\ArrayType;
+use PHPStan\Type\Constant\ConstantArrayType;
 use PHPStan\Type\Constant\ConstantIntegerType;
 use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\Doctrine\DescriptorNotRegisteredException;
 use PHPStan\Type\Doctrine\DescriptorRegistry;
 use PHPStan\Type\Doctrine\ObjectMetadataResolver;
-use PHPStan\Type\IntersectionType;
 use PHPStan\Type\MixedType;
 use PHPStan\Type\NeverType;
-use PHPStan\Type\NullType;
 use PHPStan\Type\ObjectType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
 use PHPStan\Type\TypeUtils;
 use PHPStan\Type\UnionType;
+use Shredio\DoctrineQueries\Criteria\CriteriaParser;
+use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
+use Shredio\DoctrineQueries\Metadata\FieldType;
+use Shredio\DoctrineQueries\Metadata\QueryMetadata;
+use Shredio\DoctrineQueries\Select\Field;
+use Shredio\DoctrineQueries\Select\QueryType;
 
 /**
  * @api
@@ -28,17 +31,14 @@ use PHPStan\Type\UnionType;
 final readonly class PhpStanDoctrineService
 {
 
-	private PhpStanDoctrineEntityServiceFactory $entityServiceFactory;
+	private PhpstanClassMetadataFactory $classMetadataFactory;
 
 	public function __construct(
 		ObjectMetadataResolver $objectMetadataResolver,
-		DescriptorRegistry $descriptorRegistry,
+		private DescriptorRegistry $descriptorRegistry,
 	)
 	{
-		$this->entityServiceFactory = new PhpStanDoctrineEntityServiceFactory(
-			$objectMetadataResolver,
-			$descriptorRegistry,
-		);
+		$this->classMetadataFactory = new PhpstanClassMetadataFactory($objectMetadataResolver);
 	}
 
 	public function tryGetSingleStringFromType(Type $type): ?string
@@ -56,7 +56,7 @@ final readonly class PhpStanDoctrineService
 	public function determineTypeByFieldCriteria(Type $type, string $fieldName, array $criteriaCollection): Type
 	{
 		foreach ($criteriaCollection as $criteria) {
-			if ($criteria->fieldName !== $fieldName) {
+			if ($criteria->field->name !== $fieldName) {
 				continue;
 			}
 
@@ -141,21 +141,10 @@ final readonly class PhpStanDoctrineService
 	public function getCriteriaFromType(Type $type): iterable
 	{
 		foreach ($this->iterateConstantArraysInType($type) as $keyType => $valueType) {
-			if ($keyType->isInteger()->yes()) {
-				continue; // Invalid key type for criteria
-			}
-
 			foreach ($keyType->getConstantStrings() as $constantString) {
-				$fieldName = $constantString->getValue();
-				$pos = strpos($fieldName, ' ');
-				$operator = '=';
+				[$field, $operator] = CriteriaParser::parseSingleField($constantString->getValue());
 
-				if ($pos !== false) { // e.g. 'fieldName >='
-					$operator = substr($fieldName, $pos + 1);
-					$fieldName = substr($fieldName, 0, $pos);
-				}
-
-				yield new CriteriaItemType($fieldName, $operator, $valueType);
+				yield new CriteriaItemType($field, $operator, $valueType);
 			}
 		}
 	}
@@ -180,7 +169,7 @@ final readonly class PhpStanDoctrineService
 	}
 
 	/**
-	 * @return list<string>
+	 * @return list<Field>
 	 */
 	public function getFieldsFromOrderByType(Type $type): array
 	{
@@ -188,7 +177,7 @@ final readonly class PhpStanDoctrineService
 
 		foreach ($this->iterateConstantArraysInType($type) as $keyType => $valueType) {
 			foreach ($keyType->getConstantStrings() as $constantString) {
-				$fields[] =$constantString->getValue();
+				$fields[] = new Field($constantString->getValue());
 			}
 		}
 
@@ -196,7 +185,7 @@ final readonly class PhpStanDoctrineService
 	}
 
 	/**
-	 * @return list<array{ string, string }> field, alias
+	 * @return list<array{ Field, string }> field, alias
 	 */
 	public function getFieldsFromSelectArrayType(Type $type): array
 	{
@@ -205,7 +194,7 @@ final readonly class PhpStanDoctrineService
 		foreach ($this->iterateConstantArraysInType($type) as $keyType => $valueType) {
 			if ($keyType->isInteger()->yes()) {
 				foreach ($valueType->getConstantStrings() as $constantString) {
-					$select[] = [$constantString->getValue(), $constantString->getValue()];
+					$select[] = [new Field($constantString->getValue()), $constantString->getValue()];
 				}
 
 				continue;
@@ -215,7 +204,7 @@ final readonly class PhpStanDoctrineService
 				$fieldName = $constantString->getValue();
 
 				foreach ($valueType->getConstantStrings() as $valueConstantString) {
-					$select[] = [$fieldName, $valueConstantString->getValue()];
+					$select[] = [new Field($fieldName), $valueConstantString->getValue()];
 				}
 			}
 		}
@@ -224,13 +213,121 @@ final readonly class PhpStanDoctrineService
 	}
 
 	/**
-	 * @template T of object
-	 * @param class-string<T> $entityClassName
-	 * @return PhpStanDoctrineEntityService<T>
+	 * @return array<string|int, string> field, alias
 	 */
-	public function getEntityServiceFor(string $entityClassName): PhpStanDoctrineEntityService
+	public function getSelectFromType(Type $type): array
 	{
-		return $this->entityServiceFactory->create($entityClassName);
+		$select = [];
+
+		foreach ($this->iterateConstantArraysInType($type) as $keyType => $valueType) {
+			if ($keyType->isInteger()->yes()) {
+				foreach ($valueType->getConstantStrings() as $constantString) {
+					$select[] = $constantString->getValue();
+				}
+
+				continue;
+			}
+
+			foreach ($keyType->getConstantStrings() as $constantString) {
+				$fieldName = $constantString->getValue();
+
+				foreach ($valueType->getConstantStrings() as $valueConstantString) {
+					$select[$fieldName] = $valueConstantString->getValue();
+				}
+			}
+		}
+
+		return $select;
+	}
+
+	public function createTypeForFieldMapping(FieldType $fieldType, bool $returnScalarType = false): Type
+	{
+		$nullable = $fieldType->nullable;
+
+		return $this->resolveDoctrineType(
+			$fieldType->type,
+			$fieldType->enumType,
+			$nullable,
+			$returnScalarType,
+		);
+	}
+
+	/**
+	 * @param class-string $entityClassName
+	 * @throws NoClassMetadataException
+	 */
+	public function getQueryMetadataFor(string $entityClassName, QueryType $queryType): QueryMetadata
+	{
+		return new QueryMetadata(
+			$this->classMetadataFactory,
+			$this->classMetadataFactory->getMetadataFor($entityClassName),
+			$queryType,
+		);
+	}
+
+	/**
+	 * @see https://github.com/phpstan/phpstan-doctrine/blob/2.0.x/src/Type/Doctrine/Query/QueryResultTypeWalker.php#L2026
+	 */
+	private function resolveDoctrineType(
+		string $typeName,
+		?string $enumType = null,
+		bool $nullable = false,
+		bool $returnScalarType = false,
+	): Type
+	{
+		try {
+			$descriptor = $this->descriptorRegistry->get($typeName); // @phpstan-ignore phpstanApi.method
+
+			if ($returnScalarType) {
+				$type = $descriptor->getDatabaseInternalType();
+			} else {
+				$type = $descriptor->getWritableToPropertyType();
+			}
+
+			if (!$returnScalarType && $enumType !== null) {
+				if ($type->isArray()->no()) {
+					$type = new ObjectType($enumType);
+				} else {
+					$type = TypeCombinator::intersect(new ArrayType(
+						$type->getIterableKeyType(),
+						new ObjectType($enumType),
+					), ...TypeUtils::getAccessoryTypes($type));
+				}
+			}
+			if ($type instanceof NeverType) {
+				$type = new MixedType();
+			}
+		} catch (DescriptorNotRegisteredException) {
+			if (!$returnScalarType && $enumType !== null) {
+				$type = new ObjectType($enumType);
+			} else {
+				$type = new MixedType();
+			}
+		}
+
+		if ($nullable) {
+			$type = TypeCombinator::addNull($type);
+		}
+
+		return $type;
+	}
+
+	/**
+	 * @return array<array-key, scalar|null>
+	 */
+	public function getArrayFromConstantArray(Type $type): array
+	{
+		$values = [];
+
+		foreach ($this->iterateConstantArraysInType($type) as $keyType => $valueType) {
+			foreach ($keyType->getConstantScalarValues() as $key) {
+				foreach ($valueType->getConstantScalarValues() as $value) {
+					$values[$key] = $value;
+				}
+			}
+		}
+
+		return $values;
 	}
 
 }

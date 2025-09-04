@@ -4,6 +4,7 @@ namespace Tests\PhpStan\Data;
 
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Tests\Entity\Article;
+use Tests\Entity\ArticleNullableAuthor;
 use function PHPStan\Testing\assertType;
 
 class ScalarQueriesCases
@@ -49,17 +50,22 @@ class ScalarQueriesCases
 
 	public function testFindByWithRelations(ScalarQueries $queries): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author: int}>', $queries->findByWithRelations(Article::class));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author: int}>', $queries->findBy(Article::class, select: ['**']));
+	}
+
+	public function testFindByWithNullableRelations(ScalarQueries $queries): void
+	{
+		assertType('Shredio\DoctrineQueries\Result\DatabaseResults<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author: int|null}>', $queries->findBy(ArticleNullableAuthor::class, select: ['**']));
 	}
 
 	public function testFindByWithRelationsYield(ScalarQueries $queries): void
 	{
-		assertType('iterable<int, array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author: int}>', $queries->findByWithRelations(Article::class)->yield());
+		assertType('iterable<int, array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author: int}>', $queries->findBy(Article::class, select: ['**'])->yield());
 	}
 
 	public function testFindByWithRelationsAsArray(ScalarQueries $queries): void
 	{
-		assertType('list<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author: int}>', $queries->findByWithRelations(Article::class)->asArray());
+		assertType('list<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author: int}>', $queries->findBy(Article::class, select: ['**'])->asArray());
 	}
 
 	public function testFindPairsBy(ScalarQueries $queries): void
@@ -85,6 +91,7 @@ class ScalarQueriesCases
 		assertType('Shredio\DoctrineQueries\Result\DatabaseColumnValues<string>', $queries->findColumnValuesBy(Article::class, 'title'));
 		assertType('Shredio\DoctrineQueries\Result\DatabaseColumnValues<int>', $queries->findColumnValuesBy(Article::class, 'id'));
 		assertType('Shredio\DoctrineQueries\Result\DatabaseColumnValues<string|null>', $queries->findColumnValuesBy(Article::class, 'symbol'));
+		assertType('list<int|null>', $queries->findColumnValuesBy(ArticleNullableAuthor::class, 'author')->asArray());
 		assertType('list<int>', $queries->findColumnValuesBy(Article::class, 'author')->asArray());
 	}
 
@@ -124,6 +131,61 @@ class ScalarQueriesCases
 		assertType("list<array{symbol: string}>", $queries->findBy(Article::class, ['symbol' => $symbols], select: ['symbol'])->asArray());
 		assertType("list<array{symbol: string|null}>", $queries->findBy(Article::class, ['symbol' => $nullableSymbols], select: ['symbol'])->asArray());
 		assertType("list<array{symbol: 'A'|null}>", $queries->findBy(Article::class, ['symbol' => ['A', null]], select: ['symbol'])->asArray());
+	}
+
+	public function testFindByWithRelationSingleWildcard(ScalarQueries $queries): void
+	{
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseResults<array{id: int, name: string}>', $queries->findBy(Article::class, select: ['author.*']));
+	}
+
+	public function testFindByWithRelationSingleWildcardAsArray(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: int, name: string}>', $queries->findBy(Article::class, select: ['author.*'])->asArray());
+	}
+
+	public function testFindByWithRelationDoubleWildcard(ScalarQueries $queries): void
+	{
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseResults<array{id: int, name: string, role: int|null}>', $queries->findBy(Article::class, select: ['author.**']));
+	}
+
+	public function testFindByWithRelationDoubleWildcardAsArray(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: int, name: string, role: int|null}>', $queries->findBy(Article::class, select: ['author.**'])->asArray());
+	}
+
+	public function testFindByLeftJoinNonNullable(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: int, name: string, role: int|null}>', $queries->findBy(Article::class, select: ['author.**'], joinConfig: ['author' => 'left'])->asArray());
+	}
+
+	public function testFindByLeftJoin(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: int|null, name: string|null, role: int|null}>', $queries->findBy(ArticleNullableAuthor::class, select: ['author.**'], joinConfig: ['author' => 'left'])->asArray());
+	}
+
+	public function testFindByInnerJoinNullable(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: int, name: string, role: int|null}>', $queries->findBy(ArticleNullableAuthor::class, select: ['author.**'], joinConfig: ['author' => 'inner'])->asArray());
+	}
+
+	public function testFindByLeftJoinNested(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: int, name: string, role_id: int|null, role_name: string|null}>', $queries->findBy(Article::class, select: ['author.*', 'author.role.*' => 'role_'], joinConfig: ['author.role' => 'left'])->asArray());
+	}
+
+	public function testRelationPrefixFindByRelationWithWildcardRelationSelection(ScalarQueries $queries): void
+	{
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseResults<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author_id: int, author_name: string, author_role: int|null}>', $queries->findBy(Article::class, select: ['*', 'author.**' => 'author_']));
+	}
+
+	public function testRelationPrefixFindByRelationWithWildcardRelationSelectionAsArray(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author_id: int, author_name: string, author_role: int|null}>', $queries->findBy(Article::class, select: ['*', 'author.**' => 'author_'])->asArray());
+	}
+
+	public function testNullableRelationPrefixFindByRelationWithWildcardRelationSelectionAsArray(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: int, title: string, content: string, symbol: string|null, createdAt: string, type: string, author_id: int|null, author_name: string|null, author_role: int|null}>', $queries->findBy(ArticleNullableAuthor::class, select: ['*', 'author.**' => 'author_'])->asArray());
 	}
 
 }

@@ -10,6 +10,7 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 use Tests\Context\DoctrineContext;
 use Tests\Entity\Article;
 use Tests\Entity\Author;
+use Tests\Entity\Enum\ArticleType;
 use Tests\TestCase;
 use Tests\Unit\Helpers;
 
@@ -54,6 +55,73 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $values);
+	}
+
+	public function testFindByWithJoins(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, criteria: ['author.name' => 'Jane Smith'])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+				'symbol' => null,
+				'type' => 'news',
+			],
+		], $this->unsetColumns($values, ['createdAt']));
+	}
+
+	public function testFindByWithSelectJoins(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, orderBy: ['id' => 'ASC'], select: ['id', 'author.name'])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 1,
+				'name' => 'John Doe',
+			],
+			[
+				'id' => 2,
+				'name' => 'Jane Smith',
+			],
+			[
+				'id' => 3,
+				'name' => 'John Doe',
+			],
+		], $this->unsetColumns($values, ['createdAt']));
+	}
+
+	public function testFindByWithOrderByJoins(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, orderBy: ['author.name' => 'ASC'], select: ['id', 'author.name'])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 2,
+				'name' => 'Jane Smith',
+			],
+			[
+				'id' => 1,
+				'name' => 'John Doe',
+			],
+			[
+				'id' => 3,
+				'name' => 'John Doe',
+			],
+		], $this->unsetColumns($values, ['createdAt']));
 	}
 
 	public function testFindByWithSubQuery(): void
@@ -273,46 +341,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$values = $queries->findByWithRelations(Article::class)->asArray();
-
-		$this->assertSame([
-			[
-				'id' => 1,
-				'title' => 'Sample Article',
-				'content' => 'This is a sample article.',
-				'symbol' => 'sym',
-				'createdAt' => '2021-01-01 00:00:00',
-				'type' => 'news',
-				'author' => 1,
-			],
-			[
-				'id' => 2,
-				'title' => 'Another Article',
-				'content' => 'This is another article.',
-				'symbol' => null,
-				'createdAt' => '2021-01-01 00:00:00',
-				'type' => 'news',
-				'author' => 2,
-			],
-			[
-				'id' => 3,
-				'title' => 'Third Article',
-				'content' => 'This is the third article.',
-				'symbol' => null,
-				'createdAt' => '2021-01-01 00:00:00',
-				'type' => 'news',
-				'author' => 1,
-			],
-		], $values);
-	}
-
-	public function testFindByWithRelationsYield(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$values = iterator_to_array($queries->findByWithRelations(Article::class)->yield());
+		$values = $queries->findBy(Article::class, select: ['**'])->asArray();
 
 		$this->assertSame([
 			[

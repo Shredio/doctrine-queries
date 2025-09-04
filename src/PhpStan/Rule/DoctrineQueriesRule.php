@@ -11,11 +11,18 @@ use PHPStan\Rules\RuleErrorBuilder;
 use PHPStan\Type\Doctrine\ObjectMetadataResolver;
 use PHPStan\Type\Type;
 use Shredio\DoctrineQueries\DoctrineQueries;
+use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
+use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
+use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
+use Shredio\DoctrineQueries\Metadata\QueryMetadata;
+use Shredio\DoctrineQueries\PhpStan\PhpstanClassMetadataFactory;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineService;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Shredio\DoctrineQueries\Query\ObjectQueries;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
+use Shredio\DoctrineQueries\Select\Field;
+use Shredio\DoctrineQueries\Select\QueryType;
 
 /**
  * @implements Rule<MethodCall>
@@ -23,23 +30,21 @@ use Shredio\DoctrineQueries\Query\ScalarQueries;
 final readonly class DoctrineQueriesRule implements Rule
 {
 
-	private const Map = [
+	private const array Map = [
 		ScalarQueries::class => [
-			'findBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
-			'findOneBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
-			'findIndexedBy' => [1 => 'indexField', 2 => 'criteria', 3 => 'orderBy', 4 => 'select'],
-			'findByWithRelations' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
-			'findPairsBy' => [1 => 'field', 2 => 'field', 3 => 'criteria', 4 => 'orderBy'],
-			'findColumnValuesBy' => [1 => 'field', 2 => 'criteria', 3 => 'orderBy'],
+			'findBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select', 4 => 'joinConfig'],
+			'findOneBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select', 4 => 'joinConfig'],
+			'findIndexedBy' => [1 => 'indexField', 2 => 'criteria', 3 => 'orderBy', 4 => 'select', 5 => 'joinConfig'],
+			'findPairsBy' => [1 => 'field', 2 => 'field', 3 => 'criteria', 4 => 'orderBy', 5 => 'joinConfig'],
+			'findColumnValuesBy' => [1 => 'field', 2 => 'criteria', 3 => 'orderBy', 5 => 'joinConfig'],
 			'findSingleColumnValueBy' => [1 => 'field', 2 => 'criteria'],
 		],
 		ArrayQueries::class => [
-			'findBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
-			'findOneBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
-			'findIndexedBy' => [1 => 'indexField', 2 => 'criteria', 3 => 'orderBy', 4 => 'select'],
-			'findByWithRelations' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
-			'findPairsBy' => [1 => 'field', 2 => 'field', 3 => 'criteria', 4 => 'orderBy'],
-			'findColumnValuesBy' => [1 => 'field', 2 => 'criteria', 3 => 'orderBy'],
+			'findBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select', 4 => 'joinConfig'],
+			'findOneBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select', 4 => 'joinConfig'],
+			'findIndexedBy' => [1 => 'indexField', 2 => 'criteria', 3 => 'orderBy', 4 => 'select', 5 => 'joinConfig'],
+			'findPairsBy' => [1 => 'field', 2 => 'field', 3 => 'criteria', 4 => 'orderBy', 5 => 'joinConfig'],
+			'findColumnValuesBy' => [1 => 'field', 2 => 'criteria', 3 => 'orderBy', 5 => 'joinConfig'],
 			'findSingleColumnValueBy' => [1 => 'field', 2 => 'criteria'],
 		],
 		ObjectQueries::class => [
@@ -50,7 +55,7 @@ final readonly class DoctrineQueriesRule implements Rule
 			'countBy' => [1 => 'criteria'],
 			'existsBy' => [1 => 'criteria'],
 			'deleteBy' => [1 => 'criteria'],
-			'subQuery' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select'],
+			'subQuery' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select', 4 => 'joinConfig'],
 		],
 	];
 
@@ -116,18 +121,15 @@ final readonly class DoctrineQueriesRule implements Rule
 			];
 		}
 
-		$classMetadata = $this->objectMetadataResolver->getClassMetadata($entityClassName);
-		if ($classMetadata === null) {
-			return [
-				RuleErrorBuilder::message(
-					sprintf('The entity class `%s` does not exist or is not managed by Doctrine.', $entityClassName),
-				)
-					->identifier('doctrineQueries.invalidEntityClass')
-					->build(),
-			];
+		try {
+			$classMetadataFactory = new PhpstanClassMetadataFactory($this->objectMetadataResolver);
+			$entityMetadata = $classMetadataFactory->getMetadataFor($entityClassName);
+		} catch (NoClassMetadataException $exception) {
+			return [$exception->toPhpstanError()];
 		}
 
-		$entityService = $this->service->getEntityServiceFor($entityClassName);
+		$queryMetadata = new QueryMetadata($classMetadataFactory, $entityMetadata, QueryType::Array); // QueryType here does not matter, we only use it to validate field names
+
 		$arguments = [];
 
 		foreach ($args as $i => $arg) {
@@ -150,6 +152,67 @@ final readonly class DoctrineQueriesRule implements Rule
 
 			$argType = $scope->getType($arg->value);
 
+			$validateAssociation = function (string $type, Field $field) use ($entityClassName, $methodName, $calledOnClass, $queryMetadata): ?IdentifierRuleError {
+				try {
+					$metadata = $queryMetadata->getFieldMetadata($field);
+					if (!$metadata->isAssociation) {
+						return $this->invalidAssociation(
+							$type,
+							$calledOnClass,
+							$methodName,
+							$entityClassName,
+							$field->getParent() ?? '',
+							$field->name,
+						);
+					}
+
+				} catch (FieldNotExistsException) {
+					return $this->invalidAssociation(
+						$type,
+						$calledOnClass,
+						$methodName,
+						$entityClassName,
+						$field->getParent() ?? '',
+						$field->name,
+					);
+				} catch (InvalidAssociationPathException $exception) {
+					return $this->invalidAssociation(
+						$type,
+						$calledOnClass,
+						$methodName,
+						$entityClassName,
+						$exception->path,
+						$exception->fieldName,
+					);
+				}
+
+				return null;
+			};
+			$validateField = function (string $type, Field $field) use ($entityClassName, $methodName, $calledOnClass, $queryMetadata): ?IdentifierRuleError {
+				try {
+					$queryMetadata->getFieldMetadata($field);
+				} catch (FieldNotExistsException) {
+					return $this->invalidFieldName(
+						$type,
+						$calledOnClass,
+						$methodName,
+						$entityClassName,
+						$field->name
+					);
+				} catch (InvalidAssociationPathException $exception) {
+					return $this->invalidAssociation(
+						$type,
+						$calledOnClass,
+						$methodName,
+						$entityClassName,
+						$exception->path,
+						$exception->fieldName,
+					);
+				}
+
+				return null;
+			};
+
 			if ($argumentName === 'criteria') {
 				$constantArrayError = $this->validateConstantArray($argType, $argumentPos, 'criteria');
 				if ($constantArrayError !== null) {
@@ -158,8 +221,9 @@ final readonly class DoctrineQueriesRule implements Rule
 				}
 
 				foreach ($this->service->getCriteriaFromType($argType) as $item) {
-					if (!$entityService->hasFieldOrAssociation($item->fieldName)) {
-						$errors[] = $this->invalidFieldName('criteria', $calledOnClass, $methodName, $entityClassName, $item->fieldName);
+					$error = $validateField('criteria', $item->field);
+					if ($error !== null) {
+						$errors[] = $error;
 					}
 				}
 
@@ -174,8 +238,9 @@ final readonly class DoctrineQueriesRule implements Rule
 				}
 
 				foreach ($this->service->getFieldsFromOrderByType($argType) as $field) {
-					if (!$entityService->hasFieldOrAssociation($field)) {
-						$errors[] = $this->invalidFieldName('orderBy', $calledOnClass, $methodName, $entityClassName, $field);
+					$error = $validateField('criteria', $field);
+					if ($error !== null) {
+						$errors[] = $error;
 					}
 				}
 
@@ -189,9 +254,27 @@ final readonly class DoctrineQueriesRule implements Rule
 					continue;
 				}
 
-				foreach ($this->service->getFieldsFromSelectArrayType($argType) as [$fieldName]) {
-					if (!$entityService->hasFieldOrAssociation($fieldName)) {
-						$errors[] = $this->invalidFieldName('select', $calledOnClass, $methodName, $entityClassName, $fieldName);
+				foreach ($this->service->getFieldsFromSelectArrayType($argType) as [$field]) {
+					$error = $validateField('select', $field);
+					if ($error !== null) {
+						$errors[] = $error;
+					}
+				}
+
+				continue;
+			}
+
+			if ($argumentName === 'joinConfig') {
+				$constantArrayError = $this->validateConstantArray($argType, $argumentPos, 'joinConfig');
+				if ($constantArrayError !== null) {
+					$errors[] = $constantArrayError;
+					continue;
+				}
+
+				foreach ($this->service->getArrayFromConstantArray($argType) as $key => $value) { // $value is 'left'|'inner', no need to validate
+					$error = $validateAssociation('joinConfig', new Field($key));
+					if ($error !== null) {
+						$errors[] = $error;
 					}
 				}
 
@@ -211,8 +294,9 @@ final readonly class DoctrineQueriesRule implements Rule
 				continue;
 			}
 
-			if (!$entityService->hasFieldOrAssociation($fieldName)) {
-				$errors[] = $this->invalidFieldName('field', $calledOnClass, $methodName, $entityClassName, $fieldName);
+			$error = $validateField('field', new Field($fieldName));
+			if ($error !== null) {
+				$errors[] = $error;
 			}
 		}
 
@@ -244,6 +328,22 @@ final readonly class DoctrineQueriesRule implements Rule
 			),
 		)
 			->identifier(sprintf('doctrineQueries.invalid%sField', ucfirst($type)))
+			->build();
+	}
+
+	private function invalidAssociation(string $type, string $calledOnClass, string $methodName, string $entityClassName, string $path, string $fieldName): IdentifierRuleError
+	{
+		return RuleErrorBuilder::message(
+			sprintf(
+				'Call to method %s::%s() - entity %s has an invalid association %s. The field `%s` is not an association.',
+				$calledOnClass,
+				$methodName,
+				$entityClassName,
+				$path === '' ? 'in root entity' : sprintf('path `%s`', $path),
+				$fieldName,
+			),
+		)
+			->identifier(sprintf('doctrineQueries.invalid%sAssociation', ucfirst($type)))
 			->build();
 	}
 

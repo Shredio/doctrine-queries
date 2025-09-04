@@ -15,7 +15,7 @@ use Tests\Doctrine\Symbol;
 use Tests\Entity\Enum\ArticleType;
 
 #[Entity]
-class Article
+class ArticleNullableAuthor
 {
 
 	public const array AllFields = ['id', 'title', 'content', 'author', 'symbol', 'createdAt', 'type'];
@@ -32,8 +32,8 @@ class Article
 		#[Column(type: 'text')]
 		private string $content,
 		#[ManyToOne(targetEntity: Author::class)]
-		#[JoinColumn(nullable: false)]
-		private Author $author,
+		#[JoinColumn(nullable: true)]
+		private ?Author $author = null,
 		#[Column(type: 'symbol', nullable: true)]
 		private ?Symbol $symbol = null,
 		#[Column(type: 'datetime_immutable')]

@@ -3,13 +3,14 @@
 namespace Shredio\DoctrineQueries\PhpStan\TypeExtension;
 
 use Shredio\DoctrineQueries\Query\ScalarQueries;
+use Shredio\DoctrineQueries\Select\QueryType;
 
 final readonly class ScalarQueriesDynamicReturnTypeExtension extends BaseQueriesDynamicReturnTypeExtension
 {
 
-	protected function isScalar(): bool
+	protected function getQueryType(): QueryType
 	{
-		return true;
+		return QueryType::Scalar;
 	}
 
 	public function getClass(): string

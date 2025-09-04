@@ -9,6 +9,7 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 use Tests\Context\DoctrineContext;
 use Tests\Doctrine\Symbol;
 use Tests\Entity\Article;
+use Tests\Entity\Enum\ArticleType;
 use Tests\TestCase;
 use Tests\Unit\Helpers;
 
@@ -56,13 +57,80 @@ final class ArrayQueriesTest extends TestCase
 		$this->assertNull($columns[2]);
 	}
 
-	public function testFindByWithRelations(): void
+	public function testFindByWithJoins(): void
 	{
 		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$values = $queries->findByWithRelations(Article::class)->asArray();
+		$values = $queries->findBy(Article::class, criteria: ['author.name' => 'Jane Smith'])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+				'symbol' => null,
+				'type' => ArticleType::News,
+			],
+		], $this->unsetColumns($values, ['createdAt']));
+	}
+
+	public function testFindByWithSelectJoins(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, select: ['id', 'author.name'], orderBy: ['id' => 'ASC'])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 1,
+				'name' => 'John Doe',
+			],
+			[
+				'id' => 2,
+				'name' => 'Jane Smith',
+			],
+			[
+				'id' => 3,
+				'name' => 'John Doe',
+			],
+		], $this->unsetColumns($values, ['createdAt']));
+	}
+
+	public function testFindByWithOrderByJoins(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, orderBy: ['author.name' => 'ASC'], select: ['id', 'author.name'])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 2,
+				'name' => 'Jane Smith',
+			],
+			[
+				'id' => 1,
+				'name' => 'John Doe',
+			],
+			[
+				'id' => 3,
+				'name' => 'John Doe',
+			],
+		], $this->unsetColumns($values, ['createdAt']));
+	}
+
+	public function testFindByWithRelationSelection(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, select: ['**'])->asArray();
 
 		$this->assertSame([
 			[
@@ -94,6 +162,149 @@ final class ArrayQueriesTest extends TestCase
 		$this->assertInstanceOf(Symbol::class, $columns[0]);
 		$this->assertNull($columns[1]);
 		$this->assertNull($columns[2]);
+
+		$this->assertHasAllFields($values, Article::AllFields);
+	}
+
+	public function testFindByWithRelationWildcardSelection(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, select: ['author.*'])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 1,
+				'name' => 'John Doe',
+			],
+			[
+				'id' => 1,
+				'name' => 'John Doe',
+			],
+			[
+				'id' => 2,
+				'name' => 'Jane Smith',
+			],
+		], $values);
+	}
+
+	public function testColumnValuesNullableRelations(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: ['author.role' => 'left'])->asArray();
+
+		$this->assertSame([
+			null, null, 1,
+		], $values);
+	}
+
+	public function testColumnValuesNonNullableRelations(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: 'inner')->asArray();
+
+		$this->assertSame([
+			1,
+		], $values);
+	}
+
+	public function testColumnValuesNonNullableRelations2(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: ['author.role' => 'inner'])->asArray();
+
+		$this->assertSame([
+			1,
+		], $values);
+	}
+
+	public function testColumnValuesDistinctNullableRelations(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', distinct: true, joinConfig: ['author.role' => 'left'])->asArray();
+
+		$this->assertSame([
+			null, 1,
+		], $values);
+	}
+
+	public function testFindByRelationWithWildcardRelationSelection(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, select: ['author.**'])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 1,
+				'name' => 'John Doe',
+				'role' => null,
+			],
+			[
+				'id' => 1,
+				'name' => 'John Doe',
+				'role' => null,
+			],
+			[
+				'id' => 2,
+				'name' => 'Jane Smith',
+				'role' => 1,
+			],
+		], $values);
+	}
+
+	public function testRelationPrefixFindByRelationWithWildcardRelationSelection(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, select: ['*', 'author.**' => 'author_'])->asArray();
+
+		$this->assertSame([
+			[
+				'id' => 1,
+				'title' => 'Sample Article',
+				'content' => 'This is a sample article.',
+				'author_id' => 1,
+				'author_name' => 'John Doe',
+				'author_role' => null,
+			],
+			[
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+				'author_id' => 2,
+				'author_name' => 'Jane Smith',
+				'author_role' => 1,
+			],
+			[
+				'id' => 3,
+				'title' => 'Third Article',
+				'content' => 'This is the third article.',
+				'author_id' => 1,
+				'author_name' => 'John Doe',
+				'author_role' => null,
+			],
+		], $this->unsetColumns($values, $keys = ['createdAt', 'symbol', 'type']));
+
+		$this->assertValuesHasKeys($keys, $values);
 	}
 
 	public function testFindIndexedByYield(): void
@@ -202,6 +413,32 @@ final class ArrayQueriesTest extends TestCase
 	private function getQueries(): ArrayQueries
 	{
 		return new ArrayQueries(new SimplifiedQueryBuilderFactory($this->createManagerRegistry()));
+	}
+
+	private function assertHasAllFields(array $values, array $fields): void
+	{
+		sort($fields);
+
+		foreach ($values as $item) {
+			$keys = array_keys($item);
+			sort($keys);
+
+			$this->assertSame($fields, $keys);
+		}
+	}
+
+	/**
+	 * @param list<string> $keys
+	 * @param mixed[] $values
+	 */
+	private function assertValuesHasKeys(array $keys, array $values): void
+	{
+		foreach ($values as $value) {
+			$this->assertIsArray($value);
+			foreach ($keys as $key) {
+				$this->assertArrayHasKey($key, $value);
+			}
+		}
 	}
 
 }

@@ -40,6 +40,18 @@ $userData = $queries->arrays->findBy(User::class, ['age >' => 18])->asArray();
 // Query scalar values only
 $userNames = $queries->scalars->findColumnValuesBy(User::class, 'name', ['status' => 'active'])->asArray();
 
+// Use subqueries for complex filtering
+$activeUsersWithPosts = $queries->objects->findBy(
+    User::class,
+    [
+        'id' => $queries->subQuery(
+            Post::class,
+            ['status' => 'published'],
+            select: ['author.id']
+        )
+    ]
+)->asArray();
+
 // Check if entities exist
 $hasActiveUsers = $queries->existsBy(User::class, ['status' => 'active']);
 
@@ -72,6 +84,14 @@ $users = $queries->arrays->findBy(User::class, ['status' => 'active'])->asArray(
 // With field selection
 $users = $queries->arrays->findBy(User::class, ['status' => 'active'], select: ['id', 'name'])->asArray();
 // Returns: [['id' => 1, 'name' => 'John'], ...]
+
+// With join configuration for optimal performance
+$posts = $queries->arrays->findBy(
+    Post::class, 
+    ['status' => 'published'], 
+    select: ['title', 'author.name'],
+    joinConfig: ['author' => 'inner'] // Use inner join for better performance
+)->asArray();
 ```
 
 ### Scalar Queries
@@ -188,6 +208,27 @@ $users = $queries->arrays->findBy(
     ['status' => 'active'],
     select: ['id' => 'userId', 'name' => 'fullName']
 )->asArray();
+
+// Select related fields with automatic joins
+$posts = $queries->arrays->findBy(
+    Post::class,
+    ['status' => 'published'],
+    select: ['title', 'author.name', 'category.name']
+)->asArray();
+
+// Select all fields (without relations)
+$posts = $queries->arrays->findBy(
+    Post::class,
+    ['status' => 'published'],
+    select: ['*'] // Selects all fields
+)->asArray();
+
+// Select all fields including relations
+$posts = $queries->arrays->findBy(
+    Post::class,
+    ['status' => 'published'],
+    select: ['**'] // Selects all fields including ManyToOne relations
+)->asArray();
 ```
 
 ## Working with Results
@@ -231,15 +272,62 @@ $domains = $queries->scalars->findColumnValuesBy(
 )->asArray();
 ```
 
-## Relations
+## Advanced Features
 
-### Including Relations
+### Subqueries
+
+Use subqueries for complex filtering and data retrieval:
 
 ```php
-// Include related data in queries
-$posts = $queries->scalars->findByWithRelations(
+// Find users who have published posts
+$usersWithPosts = $queries->objects->findBy(
+    User::class,
+    [
+        'id' => $queries->subQuery(
+            Post::class,
+            ['status' => 'published'],
+            select: ['author.id']
+        )
+    ]
+)->asArray();
+
+// Find posts by users from specific cities
+$posts = $queries->arrays->findBy(
     Post::class,
-    ['status' => 'published']
+    [
+        'author.id' => $queries->subQuery(
+            User::class,
+            ['city' => ['Prague', 'Brno']],
+            select: ['id']
+        )
+    ]
+)->asArray();
+```
+
+### Join Configuration
+
+Control join types for optimal query performance:
+
+```php
+// Use inner joins for better performance when you know relations exist
+$posts = $queries->arrays->findBy(
+    Post::class,
+    ['author.status' => 'active'],
+    select: ['title', 'author.name'],
+    joinConfig: [
+        'author' => 'inner' // Inner join for author relation
+    ]
+)->asArray();
+
+// Mix of inner and left joins
+$comments = $queries->arrays->findBy(
+    Comment::class,
+    [],
+    select: ['content', 'author.name', 'post.title'],
+    joinConfig: [
+        'author' => 'left',  // Left join (author might be null)
+        'post' => 'inner'    // Inner join (comment must have a post)
+    ]
 )->asArray();
 ```
 
@@ -296,6 +384,9 @@ This provides:
 3. **Use yielding** for large datasets to avoid memory issues
 4. **Select only needed fields** to reduce data transfer
 5. **Use distinct** when appropriate to reduce result size
+6. **Configure joins properly** - use inner joins when relations are guaranteed to exist
+7. **Use subqueries** for complex filtering instead of loading large datasets in PHP
+8. **Leverage field path selection** for automatic join optimization
 
 ## Examples
 
@@ -327,14 +418,16 @@ $recentEmails = $queries->scalars->findColumnValuesBy(
 ### Content Management
 
 ```php
-// Get published articles with author info
-$articles = $queries->arrays->findByWithRelations(
+// Get published articles with author info using modern field path selection
+$articles = $queries->arrays->findBy(
     Article::class,
     [
         'status' => 'published',
         'published_at <=' => new DateTime()
     ],
-    orderBy: ['published_at' => 'DESC']
+    orderBy: ['published_at' => 'DESC'],
+    select: ['title', 'author.name', 'published_at'],
+    joinConfig: ['author' => 'inner'] // Ensure articles have authors
 )->asArray();
 
 // Get article titles for search suggestions
@@ -344,21 +437,48 @@ $suggestions = $queries->scalars->findColumnValuesBy(
     ['status' => 'published', 'title LIKE' => '%' . $query . '%'],
     distinct: true
 )->asArray();
+
+// Find articles by users with specific roles using subqueries
+$adminArticles = $queries->arrays->findBy(
+    Article::class,
+    [
+        'author.id' => $queries->subQuery(
+            User::class,
+            ['role' => 'admin'],
+            select: ['id']
+        )
+    ],
+    select: ['title', 'author.name']
+)->asArray();
 ```
 
 ### E-commerce
 
 ```php
-// Get products in stock with pricing
+// Get products in stock with pricing and category info
 $products = $queries->arrays->findBy(
     Product::class,
     [
         'stock_quantity >' => 0,
         'status' => 'active',
-        'category' => ['electronics', 'books']
+        'category.name' => ['Electronics', 'Books']
     ],
     orderBy: ['price' => 'ASC'],
-    select: ['id', 'name', 'price', 'stock_quantity']
+    select: ['id', 'name', 'price', 'stock_quantity', 'category.name'],
+    joinConfig: ['category' => 'inner']
+)->asArray();
+
+// Get products with recent orders using subqueries
+$popularProducts = $queries->arrays->findBy(
+    Product::class,
+    [
+        'id' => $queries->subQuery(
+            OrderItem::class,
+            ['order.created_at >' => new DateTime('-30 days')],
+            select: ['product.id']
+        )
+    ],
+    select: ['name', 'price']
 )->asArray();
 
 // Get order statistics

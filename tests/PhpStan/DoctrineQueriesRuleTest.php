@@ -99,6 +99,38 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 			[
 				'Call to method Shredio\DoctrineQueries\DoctrineQueries::subQuery() - entity Tests\Entity\Article does not have a field or association named `$authorId`.',
 				102,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
+				107,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findOneBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
+				108,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findIndexedBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
+				109,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findPairsBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
+				110,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
+				112,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findOneBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
+				113,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findIndexedBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
+				114,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findPairsBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
+				115,
 			]
 		]);
 	}

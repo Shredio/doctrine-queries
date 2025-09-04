@@ -3,15 +3,19 @@
 namespace Shredio\DoctrineQueries\Query;
 
 use Doctrine\ORM\QueryBuilder;
+use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 
+/**
+ * @internal
+ */
 final readonly class SubQuery
 {
 
-	/** @var callable(string $alias): QueryBuilder */
+	/** @var callable(QueryMetadata $metadata): QueryBuilder */
 	private mixed $factory;
 
 	/**
-	 * @param callable(string $alias): QueryBuilder $factory
+	 * @param callable(QueryMetadata $metadata): QueryBuilder $factory
 	 */
 	public function __construct(
 		callable $factory,
@@ -20,9 +24,9 @@ final readonly class SubQuery
 		$this->factory = $factory;
 	}
 
-	public function build(string $alias): QueryBuilder
+	public function build(QueryMetadata $metadata): QueryBuilder
 	{
-		return ($this->factory)($alias);
+		return ($this->factory)($metadata);
 	}
 
 }
