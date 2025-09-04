@@ -4,6 +4,7 @@ namespace Tests\Unit\Query;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
@@ -486,6 +487,85 @@ final class ScalarQueriesTest extends TestCase
 		$value = $queries->findOneBy(Article::class, ['id' => 999]);
 
 		$this->assertNull($value);
+	}
+
+	public function testFindByWithPagination(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, pagination: new Pagination(2, 1))->asArray();
+
+		$this->assertCount(2, $values);
+		$this->assertSame([
+			[
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
+			],
+			[
+				'id' => 3,
+				'title' => 'Third Article',
+				'content' => 'This is the third article.',
+				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
+			],
+		], $values);
+	}
+
+	public function testFindByWithPaginationLimitOnly(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, pagination: new Pagination(2))->asArray();
+
+		$this->assertCount(2, $values);
+		$this->assertSame([
+			[
+				'id' => 1,
+				'title' => 'Sample Article',
+				'content' => 'This is a sample article.',
+				'symbol' => 'sym',
+				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
+			],
+			[
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
+			],
+		], $values);
+	}
+
+	public function testFindByWithPaginationAndCriteria(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, ['id >' => 1], pagination: new Pagination(1))->asArray();
+
+		$this->assertCount(1, $values);
+		$this->assertSame([
+			[
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+				'symbol' => null,
+				'createdAt' => '2021-01-01 00:00:00',
+				'type' => 'news',
+			],
+		], $values);
 	}
 
 	private function getQueries(): ScalarQueries

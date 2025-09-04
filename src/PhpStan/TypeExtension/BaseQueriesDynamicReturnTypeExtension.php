@@ -101,7 +101,7 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 	private function fromFindBy(DynamicReturnTypeContext $context): GenericObjectType
 	{
 		$criteria = $context->getCriteria(1);
-		$selectType = $context->getSelectType(3, $criteria, 4);
+		$selectType = $context->getSelectType(3, $criteria, 5);
 
 		return new GenericObjectType(DatabaseResults::class, [
 			$selectType,

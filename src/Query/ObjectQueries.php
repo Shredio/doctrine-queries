@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries\Query;
 
+use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
 use Doctrine\ORM\Query;
 use Shredio\DoctrineQueries\Select\QueryType;
@@ -50,13 +51,14 @@ final readonly class ObjectQueries extends BaseQueries
 	 * @param class-string<T> $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param ?Pagination $pagination Pagination settings (limit and offset)
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseResults<T> Collection of entity objects
 	 */
-	public function findBy(string $entity, array $criteria = [], array $orderBy = [], array|string $joinConfig = 'left'): DatabaseResults
+	public function findBy(string $entity, array $criteria = [], array $orderBy = [], ?Pagination $pagination = null, array|string $joinConfig = 'left'): DatabaseResults
 	{
 		/** @var Query<int, T> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy, [], $joinConfig)->getQuery();
+		$query = $this->createFindBy($entity, $criteria, $orderBy, [], $pagination, $joinConfig)->getQuery();
 
 		return new DatabaseResults($query);
 	}
@@ -74,7 +76,7 @@ final readonly class ObjectQueries extends BaseQueries
 	public function findOneBy(string $entity, array $criteria = [], array $orderBy = [], array|string $joinConfig = 'left'): ?object
 	{
 		/** @var Query<int, T> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy, [], $joinConfig)->setMaxResults(1)->getQuery();
+		$query = $this->createFindBy($entity, $criteria, $orderBy, [], null, $joinConfig)->setMaxResults(1)->getQuery();
 
 		/** @var T|null */
 		return $query->getOneOrNullResult();

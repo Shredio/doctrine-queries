@@ -73,7 +73,7 @@ final class ObjectQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$values = $queries->findBy(Article::class, ['author.role.id' => null], [], ['author.role' => 'left'])->asArray();
+		$values = $queries->findBy(Article::class, ['author.role.id' => null], [], null, ['author.role' => 'left'])->asArray();
 
 		$this->assertCount(2, $values);
 		foreach ($values as $value) {
@@ -87,7 +87,7 @@ final class ObjectQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$values = $queries->findBy(Article::class, ['author.role.id' => 1], [], 'inner')->asArray();
+		$values = $queries->findBy(Article::class, ['author.role.id' => 1], [], null, 'inner')->asArray();
 
 		$this->assertCount(1, $values);
 		foreach ($values as $value) {
@@ -101,7 +101,7 @@ final class ObjectQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$values = $queries->findBy(Article::class, ['author.role.id' => 1], [], ['author.role' => 'inner'])->asArray();
+		$values = $queries->findBy(Article::class, ['author.role.id' => 1], [], null, ['author.role' => 'inner'])->asArray();
 
 		$this->assertCount(1, $values);
 		foreach ($values as $value) {

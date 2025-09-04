@@ -4,6 +4,7 @@ namespace Shredio\DoctrineQueries\Query;
 
 use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\Query;
+use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
 use Shredio\DoctrineQueries\Result\DatabaseIndexedResults;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
@@ -61,6 +62,7 @@ final readonly class ArrayQueries extends BaseQueries
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
+	 * @param ?Pagination $pagination Pagination settings (limit and offset)
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseResults<array<string, ValueType>> Collection of array results
 	 */
@@ -69,11 +71,12 @@ final readonly class ArrayQueries extends BaseQueries
 		array $criteria = [],
 		array $orderBy = [],
 		array $select = [],
+		?Pagination $pagination = null,
 		array|string $joinConfig = 'left',
 	): DatabaseResults
 	{
 		/** @var Query<int, array<string, ValueType>> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy, $select, $joinConfig)->getQuery();
+		$query = $this->createFindBy($entity, $criteria, $orderBy, $select, $pagination, $joinConfig)->getQuery();
 
 		return new DatabaseResults($query->setHydrationMode(self::HydrationMode));
 	}
@@ -97,7 +100,7 @@ final readonly class ArrayQueries extends BaseQueries
 	): ?array
 	{
 		/** @var Query<int, array<string, ValueType>> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy, $select, $joinConfig)->getQuery();
+		$query = $this->createFindBy($entity, $criteria, $orderBy, $select, null, $joinConfig)->getQuery();
 		$query->setHydrationMode(self::HydrationMode);
 		$query->setMaxResults(1);
 
@@ -133,7 +136,7 @@ final readonly class ArrayQueries extends BaseQueries
 		}
 
 		/** @var Query<int, array<string, ValueType>> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy, $select, $joinConfig)->getQuery();
+		$query = $this->createFindBy($entity, $criteria, $orderBy, $select, null, $joinConfig)->getQuery();
 
 		return new DatabaseIndexedResults($query->setHydrationMode(self::HydrationMode), $indexField, $unsetIndexField);
 	}

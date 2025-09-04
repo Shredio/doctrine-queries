@@ -3,6 +3,7 @@
 namespace Shredio\DoctrineQueries\Query;
 
 use Doctrine\ORM\QueryBuilder;
+use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
 use Shredio\DoctrineQueries\Select\QueryType;
 
@@ -45,6 +46,7 @@ abstract readonly class BaseQueries
 	 *   - ['name' => 'ASC'] - sort by name ascending
 	 *   - ['createdAt' => 'DESC'] - sort by creation date descending
 	 * @param string[] $select Fields to select
+	 * @param ?Pagination $pagination Pagination settings (limit and offset)
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder
 	 */
@@ -53,10 +55,11 @@ abstract readonly class BaseQueries
 		array $criteria = [],
 		array $orderBy = [],
 		array $select = [],
+		?Pagination $pagination = null,
 		array|string $joinConfig = 'left',
 	): QueryBuilder
 	{
-		return $this->queryBuilderFactory->create(
+		$qb = $this->queryBuilderFactory->create(
 			$entity,
 			$select,
 			$criteria,
@@ -64,6 +67,17 @@ abstract readonly class BaseQueries
 			joinConfig: $joinConfig,
 			queryType: $this->getQueryType(),
 		);
+
+		if ($pagination !== null) {
+			if ($pagination->limit !== null) {
+				$qb->setMaxResults($pagination->limit);
+			}
+			if ($pagination->offset !== null) {
+				$qb->setFirstResult($pagination->offset);
+			}
+		}
+
+		return $qb;
 	}
 
 	/**

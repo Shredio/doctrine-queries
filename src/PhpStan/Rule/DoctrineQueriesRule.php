@@ -34,6 +34,7 @@ final readonly class DoctrineQueriesRule implements Rule
 		'orderBy' => true,
 		'select' => true,
 		'joinConfig' => true,
+		'pagination' => true,
 	];
 
 	private const array Map = [

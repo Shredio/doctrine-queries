@@ -3,6 +3,7 @@
 namespace Tests\Unit\Query;
 
 use DateTimeImmutable;
+use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
@@ -408,6 +409,70 @@ final class ArrayQueriesTest extends TestCase
 		$value = $queries->findOneBy(Article::class, ['id' => 999]);
 
 		$this->assertNull($value);
+	}
+
+	public function testFindByWithPagination(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, pagination: new Pagination(2, 1))->asArray();
+
+		$this->assertCount(2, $values);
+		$this->assertSame([
+			[
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+			],
+			[
+				'id' => 3,
+				'title' => 'Third Article',
+				'content' => 'This is the third article.',
+			],
+		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
+	}
+
+	public function testFindByWithPaginationLimitOnly(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, pagination: new Pagination(2))->asArray();
+
+		$this->assertCount(2, $values);
+		$this->assertSame([
+			[
+				'id' => 1,
+				'title' => 'Sample Article',
+				'content' => 'This is a sample article.',
+			],
+			[
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+			],
+		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
+	}
+
+	public function testFindByWithPaginationAndCriteria(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findBy(Article::class, ['id >' => 1], pagination: new Pagination(1))->asArray();
+
+		$this->assertCount(1, $values);
+		$this->assertSame([
+			[
+				'id' => 2,
+				'title' => 'Another Article',
+				'content' => 'This is another article.',
+			],
+		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
 	}
 
 	private function getQueries(): ArrayQueries
