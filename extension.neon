@@ -8,6 +8,4 @@ services:
 		tags:
 			- phpstan.broker.dynamicMethodReturnTypeExtension
 	-
-		class: Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineEntityServiceFactory
-	-
 		class: Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
