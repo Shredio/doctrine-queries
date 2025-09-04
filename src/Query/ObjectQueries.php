@@ -50,12 +50,13 @@ final readonly class ObjectQueries extends BaseQueries
 	 * @param class-string<T> $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseResults<T> Collection of entity objects
 	 */
-	public function findBy(string $entity, array $criteria = [], array $orderBy = []): DatabaseResults
+	public function findBy(string $entity, array $criteria = [], array $orderBy = [], array|string $joinConfig = 'left'): DatabaseResults
 	{
 		/** @var Query<int, T> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy)->getQuery();
+		$query = $this->createFindBy($entity, $criteria, $orderBy, [], $joinConfig)->getQuery();
 
 		return new DatabaseResults($query);
 	}
@@ -67,12 +68,13 @@ final readonly class ObjectQueries extends BaseQueries
 	 * @param class-string<T> $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return T|null The found entity object or null if not found
 	 */
-	public function findOneBy(string $entity, array $criteria = [], array $orderBy = []): ?object
+	public function findOneBy(string $entity, array $criteria = [], array $orderBy = [], array|string $joinConfig = 'left'): ?object
 	{
 		/** @var Query<int, T> $query */
-		$query = $this->createFindBy($entity, $criteria, $orderBy)->setMaxResults(1)->getQuery();
+		$query = $this->createFindBy($entity, $criteria, $orderBy, [], $joinConfig)->setMaxResults(1)->getQuery();
 
 		/** @var T|null */
 		return $query->getOneOrNullResult();
