@@ -27,30 +27,11 @@ final readonly class Field
 
 	public function getType(): FieldSelectType
 	{
-		return match ($this->getField()) {
+		return match ($this->name) {
 			'*' => FieldSelectType::SelectAll,
 			'**' => FieldSelectType::SelectAllWithRelations,
 			default => FieldSelectType::Field,
 		};
-	}
-
-	public function isSelection(): bool
-	{
-		return $this->getType() !== FieldSelectType::Field;
-	}
-
-	public function getField(): string
-	{
-		return $this->name;
-	}
-
-	public function withField(string $field): self
-	{
-		if ($this->fieldPos === false) {
-			return new self($field);
-		}
-
-		return new self(substr($this->selector, 0, $this->fieldPos + 1) . $field);
 	}
 
 	public function getParent(): ?string
