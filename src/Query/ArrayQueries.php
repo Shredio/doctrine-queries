@@ -39,6 +39,18 @@ use Shredio\DoctrineQueries\Select\QueryType;
  * Select examples:
  *   - ['id', 'name'] - select only id and name fields
  *   - ['name' => 'personName'] - select the name field and alias it as personName
+ *   - ['*'] - select all entity fields (without relations)
+ *   - ['**'] - select all entity fields including relations (relation identifiers only)
+ *   - ['author.name'] - select related field from author relation
+ *   - ['author.*'] - select all fields from author relation
+ *   - ['author.**'] - select all fields from author relation including its relations
+ *   - ['*', 'author.**' => 'author_'] - select all entity fields and all author fields with prefix
+ *
+ * Join configuration examples:
+ *   - 'left' - use LEFT JOIN for all relations (default, includes null values)
+ *   - 'inner' - use INNER JOIN for all relations (excludes null values)
+ *   - ['author' => 'inner'] - use INNER JOIN for author relation, LEFT for others
+ *   - ['author.role' => 'left'] - use LEFT JOIN for author.role relation
  *
  * @phpstan-type ValueType mixed
  */
