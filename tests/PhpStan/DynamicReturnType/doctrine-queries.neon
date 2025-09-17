@@ -1,0 +1,21 @@
+services:
+	-
+		class: Shredio\DoctrineQueries\PhpStan\TypeExtension\DoctrineQueriesDynamicReturnTypeExtension
+		arguments:
+			- @Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
+		tags:
+			- phpstan.broker.dynamicMethodReturnTypeExtension
+	-
+		class: Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
+	-
+		factory: PHPStan\Type\Doctrine\Descriptors\ReflectionDescriptor('Tests\Doctrine\SymbolType')
+		tags:
+			- phpstan.doctrine.typeDescriptor
+
+includes:
+	- ../../../vendor/phpstan/phpstan-doctrine/extension.neon
+
+parameters:
+	doctrine:
+		objectManagerLoader: ../Data/entity-manager.php
+		reportUnknownTypes: true

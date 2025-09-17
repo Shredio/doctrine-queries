@@ -7,9 +7,12 @@ use PhpParser\Node\Expr\MethodCall;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
+use PHPStan\Rules\RuleError;
 use PHPStan\Rules\RuleErrorBuilder;
 use PHPStan\Type\Doctrine\ObjectMetadataResolver;
 use PHPStan\Type\Type;
+use PHPStan\Type\TypeCombinator;
+use PHPStan\Type\VerbosityLevel;
 use Shredio\DoctrineQueries\DoctrineQueries;
 use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
 use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
@@ -110,7 +113,7 @@ final readonly class DoctrineQueriesRule implements Rule
 		$methodName = $node->name->toString();
 		$rules = $methods[$methodName] ?? null;
 
-		if ($rules === null) {
+		if ($rules === null && $methodName !== 'existsManyBy') {
 			return [];
 		}
 
@@ -147,6 +150,11 @@ final readonly class DoctrineQueriesRule implements Rule
 			} else {
 				$arguments[$argumentName] = $arg;
 			}
+		}
+
+		if ($rules === null) {
+			// special case
+			return $this->existManyBy($arguments, $entityClassName, $calledOnClass, $scope, $queryMetadata);
 		}
 
 		$errors = [];
@@ -204,7 +212,7 @@ final readonly class DoctrineQueriesRule implements Rule
 						$calledOnClass,
 						$methodName,
 						$entityClassName,
-						$field->name
+						$field->name,
 					);
 				} catch (InvalidAssociationPathException $exception) {
 					return $this->invalidAssociation(
@@ -366,6 +374,99 @@ final readonly class DoctrineQueriesRule implements Rule
 		)
 			->identifier(sprintf('doctrineQueries.invalid%sAssociation', ucfirst($type)))
 			->build();
+	}
+
+	/**
+	 * Special validation for existsManyBy method.
+	 *
+	 * @param array<int|string, Node\Arg> $args
+	 * @return list<IdentifierRuleError>
+	 */
+	private function existManyBy(array $args, string $entityClassName, string $calledOnClass, Scope $scope, QueryMetadata $queryMetadata): array
+	{
+		$arg = $args[1] ?? $args['criteria'] ?? null;
+		if ($arg === null) {
+			return []; // covered by other rules
+		}
+
+		$argType = $scope->getType($arg->value);
+
+		$expectedKeys = [];
+		$firstKey = true;
+
+		foreach ($argType->getIterableValueType()->getConstantArrays() as $constantArray) {
+			foreach ($constantArray->getKeyTypes() as $keyType) {
+				if (!$keyType->isConstantValue()->yes()) {
+					return [
+						RuleErrorBuilder::message(
+							'Argument #2 must be a constant array of constant arrays with constant string keys representing criteria.',
+						)
+							->identifier('doctrineQueries.invalidCriteriaKey')
+							->build()
+					];
+				}
+
+				if ($firstKey) {
+					foreach ($keyType->getConstantStrings() as $constantString) {
+						$expectedKeys[] = $constantString->getValue();
+					}
+				} else {
+					$anotherKeys = [];
+					foreach ($keyType->getConstantStrings() as $constantString) {
+						$anotherKeys[] = $constantString->getValue();
+					}
+
+					$diff = array_diff($expectedKeys, $anotherKeys);
+					if (count($diff) > 0) {
+						return [
+							RuleErrorBuilder::message(
+								sprintf(
+									'Argument #2 must be a constant array of constant arrays with the same keys representing criteria. Missing keys: %s',
+									implode(', ', array_map(fn($v) => "`$v`", $diff)),
+								),
+							)
+								->identifier('doctrineQueries.invalidCriteriaKeys')
+								->build()
+						];
+					}
+
+					$diff = array_diff($anotherKeys, $expectedKeys);
+					if (count($diff) > 0) {
+						return [
+							RuleErrorBuilder::message(
+								sprintf(
+									'Argument #2 must be a constant array of constant arrays with the same keys representing criteria. Unexpected keys: %s',
+									implode(', ', array_map(fn($v) => "`$v`", $diff)),
+								),
+							)
+								->identifier('doctrineQueries.invalidCriteriaKeys')
+								->build()
+						];
+					}
+				}
+			}
+
+			$firstKey = false;
+		}
+
+		foreach (array_unique($expectedKeys) as $fieldName) {
+			try {
+				$field = new Field($fieldName);
+				if ($field->hasParent()) { // associations not allowed in existsManyBy
+					return [
+						$this->invalidFieldName('criteria', $calledOnClass, 'existsManyBy', $entityClassName, $fieldName),
+					];
+				}
+
+				$queryMetadata->getFieldMetadata($field);
+			} catch (FieldNotExistsException|InvalidAssociationPathException) {
+				return [
+					$this->invalidFieldName('criteria', $calledOnClass, 'existsManyBy', $entityClassName, $fieldName),
+				];
+			}
+		}
+
+		return [];
 	}
 
 }

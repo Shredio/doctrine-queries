@@ -12,6 +12,7 @@ use Shredio\DoctrineQueries\Query\RawQueryBuilder;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
 use Shredio\DoctrineQueries\Query\SubQuery;
+use Shredio\DoctrineQueries\Result\DatabaseExistenceResults;
 
 /**
  * Main entry point for simplified Doctrine queries.
@@ -64,6 +65,26 @@ final readonly class DoctrineQueries
 		$qb->setMaxResults(1);
 
 		return (bool) $qb->getQuery()->getOneOrNullResult();
+	}
+
+	/**
+	 * Determines if an entity exists in the database based on the given criteria.
+	 *
+	 * @param class-string $entity The class of the entity to check for existence.
+	 * @param iterable<array<string, mixed>> $values
+	 *
+	 * @return DatabaseExistenceResults<array<string, scalar|null>>
+	 */
+	public function existsManyBy(string $entity, iterable $values): DatabaseExistenceResults
+	{
+		$qb = $this->queryBuilderFactory->createExistsManyBy($entity, $values);
+		if ($qb === null) {
+			return new DatabaseExistenceResults([]);
+		}
+
+		/** @var iterable<array<string, scalar|null>> $values */
+		$values = $qb->getQuery()->toIterable();
+		return new DatabaseExistenceResults($values);
 	}
 
 	/**

@@ -132,6 +132,44 @@ final readonly class SimplifiedQueryBuilderFactory
 	}
 
 	/**
+	 * Creates a query builder for counting entities by criteria.
+	 *
+	 * @param class-string $entity The entity class to count
+	 * @param iterable<array<string, mixed>> $values Set of values to check for existence
+	 * @return QueryBuilder Query builder configured for counting
+	 */
+	public function createExistsManyBy(string $entity, iterable $values): ?QueryBuilder
+	{
+		$em = $this->managerRegistry->getManagerForClass($entity);
+		assert($em instanceof EntityManagerInterface);
+
+		$metadata = $this->createMetadata($em, $entity, QueryType::Scalar);
+
+		$qb = $em->createQueryBuilder();
+		$fields = [];
+		$index = 0;
+		foreach ($values as $row) {
+			$and = [];
+			foreach ($row as $field => $value) {
+				$fields[$field] = true;
+				$qb->setParameter($paramName = 'param_' . $index++, $value);
+
+				$and[] = $qb->expr()->eq($metadata->rootAlias . '.' . $field, ':' . $paramName);
+			}
+
+			$qb->orWhere($qb->expr()->andX(...$and));
+		}
+
+		if ($index === 0) {
+			return null;
+		}
+
+		$qb->from($entity, $metadata->rootAlias);
+		$qb->select(SelectParser::getForSelection($metadata, array_keys($fields), QueryType::Scalar));
+		return $qb;
+	}
+
+	/**
 	 * Creates a query builder for deleting entities by criteria.
 	 * 
 	 * @param class-string $entity The entity class to delete from

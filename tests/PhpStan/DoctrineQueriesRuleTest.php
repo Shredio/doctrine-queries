@@ -54,96 +54,108 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 		$this->analyse([__DIR__ . '/Data/DoctrineQueriesRuleCases.php'], [
 			[
 				'The entity class `Article` does not exist or is not managed by Doctrine.',
-				22,
+				23,
 			],
 			[
 				'The entity class `NonExistentEntity` does not exist or is not managed by Doctrine.',
-				27,
+				28,
 			],
 			[
 				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findBy() - entity Tests\Entity\Article does not have a field or association named `$invalidField`.',
-				38,
+				39,
 			],
 			[
 				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findBy() - entity Tests\Entity\Article does not have a field or association named `$invalidOrderField`.',
-				43,
+				44,
 			],
 			[
 				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findBy() - entity Tests\Entity\Article does not have a field or association named `$invalidSelectField`.',
-				48,
+				49,
 			],
 			[
 				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findSingleColumnValueBy() - entity Tests\Entity\Article does not have a field or association named `$nonExistentField`.',
-				59,
+				60,
 			],
 			[
 				'Argument #2 must be a constant array representing criteria.',
-				67,
+				68,
 			],
 			[
 				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findBy() - entity Tests\Entity\Article does not have a field or association named `$invalidField`.',
-				76,
+				77,
 			],
 			[
 				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findBy() - entity Tests\Entity\Article does not have a field or association named `$invalidField`.',
-				88,
+				89,
 			],
 			[
 				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findBy() - entity Tests\Entity\Article does not have a field or association named `$author_id`.',
-				97,
+				98,
 			],
 			[
 				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findBy() - entity Tests\Entity\Article does not have a field or association named `$symbol_id`.',
-				97,
+				98,
 			],
 			[
 				'Call to method Shredio\DoctrineQueries\DoctrineQueries::subQuery() - entity Tests\Entity\Article does not have a field or association named `$authorId`.',
-				102,
+				103,
 			],
 			[
 				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
-				107,
-			],
-			[
-				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findOneBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
 				108,
 			],
 			[
-				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findIndexedBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
+				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findOneBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
 				109,
 			],
 			[
-				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findPairsBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
+				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findIndexedBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
 				110,
 			],
 			[
-				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
-				112,
+				'Call to method Shredio\DoctrineQueries\Query\ArrayQueries::findPairsBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
+				111,
 			],
 			[
-				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findOneBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
+				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
 				113,
 			],
 			[
-				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findIndexedBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
+				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findOneBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
 				114,
 			],
 			[
-				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findPairsBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
+				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findIndexedBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `auth` is not an association.',
 				115,
 			],
 			[
+				'Call to method Shredio\DoctrineQueries\Query\ScalarQueries::findPairsBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `rol` is not an association.',
+				116,
+			],
+			[
 				'Argument #3 (orderBy) must be passed as a named argument. Position is not guaranteed.',
-				120,
+				121,
 			],
 			[
 				'Argument #4 (select) must be passed as a named argument. Position is not guaranteed.',
-				120,
+				121,
 			],
 			[
 				'Argument #5 (joinConfig) must be passed as a named argument. Position is not guaranteed.',
-				120,
-			]
+				121,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\DoctrineQueries::existsManyBy() - entity Tests\Entity\Article does not have a field or association named `$invalidField`.',
+				126,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\DoctrineQueries::existsManyBy() - entity Tests\Entity\Article does not have a field or association named `$invalidField`.',
+				137,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\DoctrineQueries::existsManyBy() - entity Tests\Entity\Article does not have a field or association named `$invalidField`.',
+				145,
+			],
 		]);
 	}
 

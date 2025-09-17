@@ -6,6 +6,7 @@ use Shredio\DoctrineQueries\DoctrineQueries;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Shredio\DoctrineQueries\Query\ObjectQueries;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
+use Tests\Doctrine\Symbol;
 use Tests\Entity\Article;
 
 class DoctrineQueriesRuleCases
@@ -118,6 +119,54 @@ class DoctrineQueriesRuleCases
 	public function requireNamedArguments(): void
 	{
 		$this->scalarQueries->findBy(Article::class, ['title' => 'Test'], ['title' => 'ASC'], ['title'], 'inner');
+	}
+
+	public function invalidFieldNameInExistsManyBy(): void
+	{
+		$this->doctrineQueries->existsManyBy(Article::class, [
+			['invalidField' => 1],
+			['invalidField' => 2],
+		]);
+	}
+
+	/**
+	 * @param list<array{ invalidField: int }> $values
+	 */
+	public function invalidExistsManyByConstantArray(array $values): void
+	{
+		$this->doctrineQueries->existsManyBy(Article::class, $values);
+	}
+
+	/**
+	 * @param iterable<array{ invalidField: int }> $values
+	 */
+	public function invalidExistsManyByConstantIterable(iterable $values): void
+	{
+		$this->doctrineQueries->existsManyBy(Article::class, $values);
+	}
+
+	/**
+	 * @param list<array{ id: Symbol }> $values
+	 */
+	public function validExistsManyByNonScalarTypeInCriteria(array $values): void
+	{
+		$this->doctrineQueries->existsManyBy(Article::class, $values);
+	}
+
+	/**
+	 * @param list<array{ id: int }> $values
+	 */
+	public function validExistsManyByConstantArray(array $values): void
+	{
+		$this->doctrineQueries->existsManyBy(Article::class, $values);
+	}
+
+	/**
+	 * @param iterable<array{ id: int }> $values
+	 */
+	public function validExistsManyByConstantIterable(iterable $values): void
+	{
+		$this->doctrineQueries->existsManyBy(Article::class, $values);
 	}
 
 	public function validCases(): void
