@@ -32,11 +32,11 @@ use Shredio\DoctrineQueries\Select\SelectParser;
  *     - ['id >' => 1, 'status' => 'active'] - multiple criteria (AND)
  *     - etc.
  *
- *  Sorting examples:
+ * Sorting examples:
  *     - ['name' => 'ASC'] - sort by name ascending
  *     - ['createdAt' => 'DESC'] - sort by creation date descending
  *
- *  Select examples:
+ * Select examples:
  *    - ['id', 'name'] - select only id and name fields
  *    - ['name' => 'personName'] - select the name field and alias it as personName
  *    - ['*'] - select all entity fields (without relations)
