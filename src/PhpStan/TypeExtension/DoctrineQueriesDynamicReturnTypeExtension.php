@@ -82,7 +82,7 @@ final readonly class DoctrineQueriesDynamicReturnTypeExtension implements Dynami
 					} catch (FieldNotExistsException|InvalidAssociationPathException) {
 						return new GenericObjectType(DatabaseExistenceResults::class, [new NeverType()]);
 					}
-					
+
 					$fieldType = $this->service->createTypeForFieldMapping(
 						$fieldMetadata->getFieldType(),
 						true,
