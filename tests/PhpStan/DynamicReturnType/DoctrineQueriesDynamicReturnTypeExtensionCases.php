@@ -4,6 +4,7 @@ namespace Tests\PhpStan\DynamicReturnType;
 
 use Shredio\DoctrineQueries\DoctrineQueries;
 use Tests\Entity\Article;
+use Tests\Entity\FavouritePrompt;
 use function PHPStan\Testing\assertType;
 
 final readonly class DoctrineQueriesDynamicReturnTypeExtensionCases
@@ -17,11 +18,19 @@ final readonly class DoctrineQueriesDynamicReturnTypeExtensionCases
 		]));
 	}
 
-	public function testStaticTypedDoubleKeyArray(DoctrineQueries $queries): void
+	public function testStaticInvalidTypedDoubleKeyArray(DoctrineQueries $queries): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseExistenceResults<array{id: int, name: string}>', $queries->existsManyBy(Article::class, [
+		assertType('Shredio\DoctrineQueries\Result\DatabaseExistenceResults<*NEVER*>', $queries->existsManyBy(Article::class, [
 			['id' => 1, 'name' => 'A'],
 			['id' => 2, 'name' => 'B'],
+		]));
+	}
+
+	public function testStaticTypedDoubleKeyArray(DoctrineQueries $queries): void
+	{
+		assertType('Shredio\DoctrineQueries\Result\DatabaseExistenceResults<array{account: int, prompt: int}>', $queries->existsManyBy(FavouritePrompt::class, [
+			['account' => 1, 'prompt' => 2],
+			['account' => 2, 'prompt' => 3],
 		]));
 	}
 
@@ -30,7 +39,7 @@ final readonly class DoctrineQueriesDynamicReturnTypeExtensionCases
 	 */
 	public function testConstantArray(DoctrineQueries $queries, array $values): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseExistenceResults<array{id: string}>', $queries->existsManyBy(Article::class, $values));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseExistenceResults<array{id: int}>', $queries->existsManyBy(Article::class, $values));
 	}
 
 	/**
@@ -49,17 +58,9 @@ final readonly class DoctrineQueriesDynamicReturnTypeExtensionCases
 	/**
 	 * @param array<array{ id: non-empty-string }> $values
 	 */
-	public function testNonEmptyString(DoctrineQueries $queries, array $values): void
+	public function testInvalidNonEmptyString(DoctrineQueries $queries, array $values): void
 	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseExistenceResults<array{id: non-empty-string}>', $queries->existsManyBy(Article::class, $values));
-	}
-
-	/**
-	 * @param array<array{ id: 'name' }> $values
-	 */
-	public function testDowngradeConstantString(DoctrineQueries $queries, array $values): void
-	{
-		assertType('Shredio\DoctrineQueries\Result\DatabaseExistenceResults<array{id: string}>', $queries->existsManyBy(Article::class, $values));
+		assertType('Shredio\DoctrineQueries\Result\DatabaseExistenceResults<array{id: int}>', $queries->existsManyBy(Article::class, $values));
 	}
 
 }
