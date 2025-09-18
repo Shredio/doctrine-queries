@@ -8,13 +8,13 @@ use PHPStan\Reflection\MethodReflection;
 use PHPStan\Type\Constant\ConstantArrayTypeBuilder;
 use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\DynamicMethodReturnTypeExtension;
-use PHPStan\Type\GeneralizePrecision;
 use PHPStan\Type\Generic\GenericObjectType;
-use PHPStan\Type\IntersectionType;
 use PHPStan\Type\NeverType;
 use PHPStan\Type\Type;
-use PHPStan\Type\TypeUtils;
-use Shredio\DoctrineQueries\DoctrineQueries;use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineService;
+use Shredio\DoctrineQueries\DoctrineQueries;
+use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
+use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
+use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineService;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory;
 use Shredio\DoctrineQueries\Result\DatabaseExistenceResults;
 use Shredio\DoctrineQueries\Select\QueryType;
@@ -77,16 +77,16 @@ final readonly class DoctrineQueriesDynamicReturnTypeExtension implements Dynami
 			foreach ($constantArrays as $constantArray) {
 				$criteriaTypes = $this->service->getCriteriaFromType($constantArray);
 				foreach ($criteriaTypes as $item) {
-					$fieldMetadata = $queryMetadata->getFieldMetadata($item->field);
+					try {
+						$fieldMetadata = $queryMetadata->getFieldMetadata($item->field);
+					} catch (FieldNotExistsException|InvalidAssociationPathException) {
+						return new GenericObjectType(DatabaseExistenceResults::class, [new NeverType()]);
+					}
+					
 					$fieldType = $this->service->createTypeForFieldMapping(
 						$fieldMetadata->getFieldType(),
 						true,
 					);
-//					$generalizedType = $item->valueType->generalize(GeneralizePrecision::lessSpecific());
-//					$accessories = TypeUtils::getAccessoryTypes($item->valueType);
-//					if ($accessories !== []) {
-//						$generalizedType = new IntersectionType([$generalizedType, ...$accessories]);
-//					}
 
 					$arrayBuilder->setOffsetValueType(new ConstantStringType($item->field->name), $fieldType);
 				}
