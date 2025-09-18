@@ -157,6 +157,25 @@ final class DoctrineQueriesTest extends TestCase
 		$this->assertFalse($results->has(['id' => 999]));
 	}
 
+	public function testGetLastIdWithExistingEntities(): void
+	{
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+
+		$lastId = $queries->getLastId(Article::class);
+
+		$this->assertSame(3, $lastId);
+	}
+
+	public function testGetLastIdWithNoEntities(): void
+	{
+		$queries = $this->getQueries();
+
+		$lastId = $queries->getLastId(Article::class);
+
+		$this->assertNull($lastId);
+	}
+
 	private function getQueries(): DoctrineQueries
 	{
 		return new DoctrineQueries(new TestManagerRegistry($this->getEntityManager()));

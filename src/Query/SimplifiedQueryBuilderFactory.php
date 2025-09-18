@@ -55,6 +55,20 @@ final readonly class SimplifiedQueryBuilderFactory
 	}
 
 	/**
+	 * Creates a raw query builder for the given entity without any additional configuration.
+	 *
+	 * @param class-string $entity The entity class to query
+	 * @return QueryBuilder Raw query builder instance
+	 */
+	public function createRaw(string $entity): QueryBuilder
+	{
+		$em = $this->managerRegistry->getManagerForClass($entity);
+		assert($em instanceof EntityManagerInterface);
+
+		return $em->createQueryBuilder();
+	}
+
+	/**
 	 * Creates a query builder for the given entity with select, criteria, and ordering.
 	 * 
 	 * @template T of object

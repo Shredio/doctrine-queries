@@ -145,6 +145,38 @@ final readonly class DoctrineQueries
 	}
 
 	/**
+	 * Retrieves the last (maximum) ID of an entity.
+	 *
+	 * @param class-string $entity The entity class to query
+	 * @return int<1,max>|null The last ID or null if no entities exist
+	 */
+	public function getLastId(string $entity): ?int
+	{
+		$qb = $this->queryBuilderFactory->createRaw($entity);
+		$metadata = $this->queryBuilderFactory->getMetadata($entity);
+		if (count($metadata->identifier) !== 1) {
+			throw new LogicException(sprintf('Entity %s has composite or no ID.', $entity));
+		}
+
+		$idField = $metadata->identifier[0];
+		$qb->select('MAX(e.' . $idField . ')');
+		$qb->from($entity, 'e');
+		$result = $qb->getQuery()->getSingleScalarResult();
+
+		if ($result === null) {
+			return null;
+		}
+		if (!is_int($result)) {
+			throw new LogicException(sprintf('Entity %s has non-integer ID.', $entity));
+		}
+		if ($result < 1) {
+			throw new LogicException(sprintf('Entity %s has invalid ID %d.', $entity, $result));
+		}
+
+		return $result;
+	}
+
+	/**
 	 * @param class-string $entityForConnection
 	 */
 	public function createQueryFromFile(string $entityForConnection, string $filePath): RawQueryBuilder
