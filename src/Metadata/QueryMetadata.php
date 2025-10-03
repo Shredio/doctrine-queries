@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Shredio\DoctrineQueries\Allocator\FieldAliasAllocator;
 use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
 use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
+use Shredio\DoctrineQueries\Exception\MultipleFieldSelectionException;
 use Shredio\DoctrineQueries\Select\Field;
 use Shredio\DoctrineQueries\Select\FieldSelectType;
 use Shredio\DoctrineQueries\Select\FieldToSelect;
@@ -98,6 +99,23 @@ final readonly class QueryMetadata
 	}
 
 	/**
+	 * @throws FieldNotExistsException
+	 * @throws InvalidAssociationPathException
+	 * @throws MultipleFieldSelectionException
+	 */
+	public function getFieldToSelect(Field $field, ?string $alias = null): FieldToSelect
+	{
+		if ($field->getType() !== FieldSelectType::Field) {
+			throw new MultipleFieldSelectionException(
+				sprintf('Field "%s" is not a single field selection.', $field->name),
+			);
+		}
+
+		$metadata = $this->fieldMetadataFactory->create($field);
+		return new FieldToSelect($metadata, $alias ?? $metadata->field->name);
+	}
+
+	/**
 	 * @return iterable<int, FieldToSelect>
 	 * @throws FieldNotExistsException
 	 * @throws InvalidAssociationPathException
@@ -107,14 +125,12 @@ final readonly class QueryMetadata
 		$type = $field->getType();
 		if ($type === FieldSelectType::Field) {
 			$metadata = $this->fieldMetadataFactory->create($field);
-
 			yield new FieldToSelect($metadata, $alias ?? $metadata->field->name);
 
 			return;
 		}
 
 		$fieldMetadata = $this->fieldMetadataFactory->createForAllFieldsIn($field->getParent(), $type === FieldSelectType::SelectAllWithRelations);
-
 		foreach ($fieldMetadata as $metadata) {
 			yield new FieldToSelect($metadata, $alias . $metadata->field->name);
 		}

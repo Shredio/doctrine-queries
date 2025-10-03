@@ -92,11 +92,18 @@ final readonly class DoctrineQueries
 	 *
 	 * @param class-string $entity
 	 * @param array<string, mixed> $criteria
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (inner is default)
 	 * @return int<0, max>
 	 */
-	public function countBy(string $entity, array $criteria = []): int
+	public function countBy(
+		string $entity,
+		array $criteria = [],
+		?string $field = null,
+		bool $distinct = false,
+		array|string $joinConfig = 'left',
+	): int
 	{
-		$qb = $this->queryBuilderFactory->createCount($entity, criteria: $criteria);
+		$qb = $this->queryBuilderFactory->createCount($entity, $criteria, $field, $distinct, $joinConfig);
 
 		/** @var int<0, max> */
 		return (int) $qb->getQuery()->getSingleScalarResult();

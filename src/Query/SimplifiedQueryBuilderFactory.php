@@ -125,7 +125,13 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Query builder configured for counting
 	 */
-	public function createCount(string $entity, array $criteria = [], array|string $joinConfig = 'left'): QueryBuilder
+	public function createCount(
+		string $entity,
+		array $criteria = [],
+		?string $field = null,
+		bool $distinct = false,
+		array|string $joinConfig = 'left',
+	): QueryBuilder
 	{
 		$em = $this->managerRegistry->getManagerForClass($entity);
 		assert($em instanceof EntityManagerInterface);
@@ -135,9 +141,14 @@ final readonly class SimplifiedQueryBuilderFactory
 		$qb = $em->createQueryBuilder();
 		$qb->from($entity, $metadata->getRootAlias());
 
-		$fieldName = $metadata->getSingleIdentifierField(false);
+		if ($field !== null) {
+			$select = $metadata->getFieldToSelect(new Field($field));
+			$field = $metadata->getPathForField($select->metadata->field);
+		} else {
+			$field = sprintf('%s.%s', $metadata->rootAlias, $metadata->getSingleIdentifierField(false));
+		}
 
-		$qb->select(sprintf('COUNT(%s.%s)', $metadata->rootAlias, $fieldName));
+		$qb->select(sprintf('COUNT(%s%s)', $distinct ? 'DISTINCT ' : '', $field));
 
 		$this->applyCriteria($qb, $criteria, $metadata);
 		$this->applyJoins($qb, $metadata, $joinConfig);

@@ -8,8 +8,10 @@ use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 use Tests\Context\DoctrineContext;
+use Tests\Doctrine\Symbol;
 use Tests\Doctrine\TestManagerRegistry;
 use Tests\Entity\Article;
+use Tests\Entity\Author;
 use Tests\TestCase;
 
 final class QueriesTest extends TestCase
@@ -108,6 +110,28 @@ final class QueriesTest extends TestCase
 		$this->persistFixtures();
 		$queries = $this->getQueries();
 		$count = $queries->countBy(Article::class, ['id' => 1]);
+
+		$this->assertSame(1, $count);
+	}
+
+	public function testCountArticlesByAuthor(): void
+	{
+		$this->persistFixtures(fn (Author $author) => [
+			new Article(4, 'Fourth Article', 'This is the fourth article.', $author, new Symbol('sym')),
+		]);
+		$queries = $this->getQueries();
+		$count = $queries->countBy(Article::class, ['symbol' => 'sym'], 'author.id');
+
+		$this->assertSame(2, $count);
+	}
+
+	public function testCountArticlesByDistinctAuthor(): void
+	{
+		$this->persistFixtures(fn (Author $author) => [
+			new Article(4, 'Fourth Article', 'This is the fourth article.', $author, new Symbol('sym')),
+		]);
+		$queries = $this->getQueries();
+		$count = $queries->countBy(Article::class, ['symbol' => 'sym'], 'author.id', distinct: true);
 
 		$this->assertSame(1, $count);
 	}

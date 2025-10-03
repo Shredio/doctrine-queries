@@ -345,6 +345,16 @@ $recentActiveUsers = $queries->countBy(User::class, [
     'status' => 'active',
     'last_login >' => new DateTime('-30 days')
 ]);
+
+// Count specific field values
+$uniqueEmails = $queries->countBy(User::class, [], field: 'email', distinct: true);
+
+// Count with join configuration
+$postsWithActiveAuthors = $queries->countBy(
+    Post::class,
+    ['author.status' => 'active'],
+    joinConfig: ['author' => 'left']
+);
 ```
 
 ## Deletion Operations
