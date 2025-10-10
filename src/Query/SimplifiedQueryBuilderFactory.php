@@ -5,6 +5,7 @@ namespace Shredio\DoctrineQueries\Query;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Query\Parameter;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use LogicException;
@@ -12,6 +13,7 @@ use Shredio\DoctrineQueries\Allocator\FieldAliasAllocator;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
 use Shredio\DoctrineQueries\Join\JoinParser;
 use Shredio\DoctrineQueries\Metadata\QueryMetadata;
+use Shredio\DoctrineQueries\Parameter\DoctrineParameterAware;
 use Shredio\DoctrineQueries\Select\Field;
 use Shredio\DoctrineQueries\Select\QueryType;
 use Shredio\DoctrineQueries\Select\SelectParser;
@@ -237,18 +239,22 @@ final readonly class SimplifiedQueryBuilderFactory
 			queryMetadata: $metadata,
 		);
 
+		$parameters = $qb->getParameters();
+
 		foreach ($items as $parsed) {
 			$qb->andWhere($parsed->getExpression($metadata));
 
 			if ($parsed->parameterName) {
-				$qb->setParameter($parsed->parameterName, $parsed->value);
+				if ($parsed->value instanceof DoctrineParameterAware) {
+					$parameters->add($parsed->value->createDoctrineParameter($parsed->parameterName));
+				} else {
+					$parameters->add(new Parameter($parsed->parameterName, $parsed->value));
+				}
 			}
 
 			if ($parsed->parameters) {
-				$params = $qb->getParameters();
-
 				foreach ($parsed->parameters as $parameter) {
-					$params->add($parameter);
+					$parameters->add($parameter);
 				}
 			}
 		}
