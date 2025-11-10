@@ -14,6 +14,7 @@ final class ScalarQueriesDynamicReturnTypeExtensionTest extends TypeInferenceTes
 	public static function dataFileAsserts(): iterable
 	{
 		yield from self::gatherAssertTypes(__DIR__ . '/Data/ScalarQueriesCases.php');
+		yield from self::gatherAssertTypes(__DIR__ . '/Data/JoinScalarQueriesCases.php');
 	}
 
 	#[DataProvider('dataFileAsserts')]

@@ -56,7 +56,7 @@ final readonly class PhpStanDoctrineService
 	public function determineTypeByFieldCriteria(Type $type, string $fieldName, array $criteriaCollection): Type
 	{
 		foreach ($criteriaCollection as $criteria) {
-			if ($criteria->field->name !== $fieldName) {
+			if ($criteria->field->selector !== $fieldName) {
 				continue;
 			}
 
