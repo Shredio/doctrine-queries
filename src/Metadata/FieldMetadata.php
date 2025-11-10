@@ -5,6 +5,7 @@ namespace Shredio\DoctrineQueries\Metadata;
 use Doctrine\ORM\Mapping\AssociationMapping;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToOneAssociationMapping;
+use Doctrine\ORM\Mapping\OneToOneOwningSideMapping;
 use Doctrine\Persistence\Mapping\ClassMetadataFactory;
 use Shredio\DoctrineQueries\Select\Field;
 
@@ -85,10 +86,17 @@ final readonly class FieldMetadata
 			}
 
 			return $mapping->joinColumns[0]->nullable ?? true;
-
 		}
 
-		throw new \LogicException('Only ManyToOne associations are supported.');
+		if ($mapping instanceof OneToOneOwningSideMapping) {
+			if (count($mapping->joinColumns) !== 1) {
+				throw new \LogicException('Composite foreign keys are not supported.');
+			}
+
+			return $mapping->joinColumns[0]->nullable ?? true;
+		}
+
+		throw new \LogicException('Only ManyToOne or OneToOne (owning side) associations are supported.');
 	}
 
 }
