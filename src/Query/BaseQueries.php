@@ -129,10 +129,11 @@ abstract readonly class BaseQueries
 		array $criteria = [],
 		array $orderBy = [],
 		bool $distinct = false,
+		?Pagination $pagination = null,
 		array|string $joinConfig = 'left',
 	): QueryBuilder
 	{
-		return $this->queryBuilderFactory->create(
+		$qb = $this->queryBuilderFactory->create(
 			$entity,
 			[$field => self::ColumnValuesColumn],
 			$criteria,
@@ -141,6 +142,17 @@ abstract readonly class BaseQueries
 			$joinConfig,
 			queryType: $this->getQueryType(),
 		);
+
+		if ($pagination !== null) {
+			if ($pagination->limit !== null) {
+				$qb->setMaxResults($pagination->limit);
+			}
+			if ($pagination->offset !== null) {
+				$qb->setFirstResult($pagination->offset);
+			}
+		}
+
+		return $qb;
 	}
 
 	/**

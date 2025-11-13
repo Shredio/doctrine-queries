@@ -197,11 +197,12 @@ final readonly class ScalarQueries extends BaseQueries
 		array $criteria = [],
 		array $orderBy = [],
 		bool $distinct = false,
+		?Pagination $pagination = null,
 		array|string $joinConfig = 'left',
 	): DatabaseColumnValues
 	{
 		/** @var Query<int, array{ v: ValueType }> $query */
-		$query = $this->createFindColumnValues($entity, $field, $criteria, $orderBy, $distinct, $joinConfig)->getQuery();
+		$query = $this->createFindColumnValues($entity, $field, $criteria, $orderBy, $distinct, $pagination, $joinConfig)->getQuery();
 
 		return new DatabaseColumnValues($query->setHydrationMode(self::HydrationMode));
 	}

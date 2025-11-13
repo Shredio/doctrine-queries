@@ -568,6 +568,50 @@ final class ScalarQueriesTest extends TestCase
 		], $values);
 	}
 
+	public function testFindColumnValuesByWithPagination(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findColumnValuesBy(Article::class, 'title', pagination: new Pagination(2))->asArray();
+
+		$this->assertCount(2, $values);
+		$this->assertSame([
+			'Sample Article',
+			'Another Article',
+		], $values);
+	}
+
+	public function testFindColumnValuesByWithPaginationOffset(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findColumnValuesBy(Article::class, 'title', pagination: new Pagination(2, 1))->asArray();
+
+		$this->assertCount(2, $values);
+		$this->assertSame([
+			'Another Article',
+			'Third Article',
+		], $values);
+	}
+
+	public function testFindColumnValuesByWithPaginationAndCriteria(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures();
+		$queries = $this->getQueries();
+		$values = $queries->findColumnValuesBy(Article::class, 'title', ['id >' => 1], pagination: new Pagination(1))->asArray();
+
+		$this->assertCount(1, $values);
+		$this->assertSame([
+			'Another Article',
+		], $values);
+	}
+
 	private function getQueries(): ScalarQueries
 	{
 		return new ScalarQueries(new SimplifiedQueryBuilderFactory($this->createManagerRegistry()));
