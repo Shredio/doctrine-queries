@@ -181,6 +181,10 @@ class DoctrineQueriesRuleCases
 		$this->objectQueries->findBy(Article::class, ['author' => 1]);
 		$this->objectQueries->findOneBy(Article::class, ['author' => 1]);
 		$this->doctrineQueries->subQuery(Article::class, ['author' => 1]);
+		$this->doctrineQueries->subQuery(Article::class, select: ['**']);
+		$this->doctrineQueries->subQuery(Article::class, select: ['*']);
+		$this->doctrineQueries->subQuery(Article::class, select: ['author.**']);
+		$this->doctrineQueries->subQuery(Article::class, select: ['author.*']);
 	}
 
 	public function validDynamicArgumentBuilder(): void

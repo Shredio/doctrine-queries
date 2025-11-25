@@ -25,6 +25,7 @@ use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Shredio\DoctrineQueries\Query\ObjectQueries;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Select\Field;
+use Shredio\DoctrineQueries\Select\FieldSelectType;
 use Shredio\DoctrineQueries\Select\QueryType;
 
 /**
@@ -204,6 +205,10 @@ final readonly class DoctrineQueriesRule implements Rule
 				return null;
 			};
 			$validateField = function (string $type, Field $field) use ($entityClassName, $methodName, $calledOnClass, $queryMetadata): ?IdentifierRuleError {
+				if ($field->getType() !== FieldSelectType::Field) {
+					return null;
+				}
+
 				try {
 					$queryMetadata->getFieldMetadata($field);
 				} catch (FieldNotExistsException) {
