@@ -2,11 +2,11 @@
 
 namespace Shredio\DoctrineQueries\Query;
 
-use ShipMonk\DoctrineEntityPreloader\EntityPreloader;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Query;
 use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Preload\SmartEntityPreloader;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
-use Doctrine\ORM\Query;
 use Shredio\DoctrineQueries\Select\QueryType;
 
 /**
@@ -41,18 +41,6 @@ use Shredio\DoctrineQueries\Select\QueryType;
 final readonly class ObjectQueries extends BaseQueries
 {
 
-	private ?SmartEntityPreloader $preloader;
-
-	public function __construct(
-		SimplifiedQueryBuilderFactory $queryBuilderFactory,
-		?EntityPreloader $preloader = null,
-	)
-	{
-		parent::__construct($queryBuilderFactory);
-
-		$this->preloader = $preloader !== null ? new SmartEntityPreloader($preloader) : null;
-	}
-
 	protected function getQueryType(): QueryType
 	{
 		return QueryType::Object;
@@ -82,7 +70,7 @@ final readonly class ObjectQueries extends BaseQueries
 		/** @var Query<int, T> $query */
 		$query = $this->createFindBy($entity, $criteria, $orderBy, [], $pagination, $joinConfig)->getQuery();
 
-		return new DatabaseResults($query, $this->createFetchCallback($preload));
+		return new DatabaseResults($query, $this->createFetchCallback($query->getEntityManager(), $preload));
 	}
 
 	/**
@@ -113,19 +101,14 @@ final readonly class ObjectQueries extends BaseQueries
 	 * @param list<string> $preload
 	 * @return (callable(list<object>): void)|null
 	 */
-	private function createFetchCallback(array $preload): ?callable
+	private function createFetchCallback(EntityManagerInterface $em, array $preload): ?callable
 	{
 		if ($preload === []) {
 			return null;
 		}
 
-		if ($this->preloader === null) {
-			throw new \LogicException('Entity preloader is not configured, cannot eager load associations.');
-		}
-
-		$preloader = $this->preloader;
-		return static function (array $objects) use ($preloader, $preload): void {
-			$preloader->preload($objects, $preload); // @phpstan-ignore argument.type ($objects is list<object>)
+		return static function (array $objects) use ($em, $preload): void {
+			SmartEntityPreloader::preload($em, $objects, $preload); // @phpstan-ignore argument.type ($objects is list<object>)
 		};
 	}
 

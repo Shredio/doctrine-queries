@@ -238,10 +238,7 @@ final class ObjectQueriesTest extends TestCase
 
 	private function getQueries(): ObjectQueries
 	{
-		return new ObjectQueries(
-			new SimplifiedQueryBuilderFactory($this->createManagerRegistry()),
-			new EntityPreloader($this->getEntityManager()),
-		);
+		return new ObjectQueries(new SimplifiedQueryBuilderFactory($this->createManagerRegistry()));
 	}
 
 }
