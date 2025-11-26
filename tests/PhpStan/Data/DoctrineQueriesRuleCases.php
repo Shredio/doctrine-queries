@@ -145,6 +145,26 @@ class DoctrineQueriesRuleCases
 		$this->doctrineQueries->existsManyBy(Article::class, $values);
 	}
 
+	public function invalidPreloadFieldUnknown(): void
+	{
+		$this->doctrineQueries->objects->findBy(Article::class, preload: ['unknownField']);
+	}
+
+	public function invalidPreloadFieldAssociation(): void
+	{
+		$this->doctrineQueries->objects->findBy(Article::class, preload: ['author.nonExistentAssociation']);
+	}
+
+	public function invalidPreloadFieldNonAssociation(): void
+	{
+		$this->doctrineQueries->objects->findBy(Article::class, preload: ['title']);
+	}
+
+	public function validPreloadFields(): void
+	{
+		$this->doctrineQueries->objects->findBy(Article::class, preload: ['author', 'author.role']);
+	}
+
 	/**
 	 * @param list<array{ id: Symbol }> $values
 	 */

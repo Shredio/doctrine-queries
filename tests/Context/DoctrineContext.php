@@ -2,12 +2,16 @@
 
 namespace Tests\Context;
 
+use Doctrine\DBAL\Driver;
+use Doctrine\DBAL\Driver\Middleware;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Tools\SchemaTool;
+use PHPUnit\Framework\Attributes\After;
 use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 use Shredio\DoctrineQueries\Select\QueryType;
+use Tests\Doctrine\QueryCounter;
 use Tests\Doctrine\Symbol;
 use Tests\Doctrine\TestManagerRegistry;
 use Tests\Entity\Article;
@@ -20,13 +24,17 @@ trait DoctrineContext
 
 	private ?EntityManagerInterface $em = null;
 
+	private ?QueryCounter $queryCounter = null;
+
 	private function getEntityManager(): EntityManager
 	{
 		if ($this->em !== null) {
 			return $this->em;
 		}
 
-		$this->em = $em = EntityManagerFactory::create();
+		$this->em = $em = EntityManagerFactory::create([
+			new \Doctrine\DBAL\Logging\Middleware($this->queryCounter = new QueryCounter()),
+		]);
 
 		if ($this->setUpDatabase()) {
 			$schemaTool = new SchemaTool($em);
@@ -34,6 +42,27 @@ trait DoctrineContext
 		}
 
 		return $em;
+	}
+
+	/**
+	 * @return callable(): list<string>
+	 */
+	private function captureQueries(): callable
+	{
+		if ($this->queryCounter === null) {
+			throw new \LogicException('Query counter is not initialized.');
+		}
+
+		return $this->queryCounter->capture();
+	}
+
+	/**
+	 * @return callable(): int
+	 */
+	private function captureQueryCount(): callable
+	{
+		$fn = $this->queryCounter->capture();
+		return fn (): int => count($fn());
 	}
 
 	/**
@@ -75,6 +104,16 @@ trait DoctrineContext
 		}
 
 		$em->flush();
+		$em->clear();
+	}
+
+	#[After]
+	protected function tearDownDoctrine(): void
+	{
+		if ($this->em !== null) {
+			$this->em->close();
+			$this->em = null;
+		}
 	}
 
 	protected function setUpDatabase(): bool

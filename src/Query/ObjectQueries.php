@@ -2,7 +2,9 @@
 
 namespace Shredio\DoctrineQueries\Query;
 
+use ShipMonk\DoctrineEntityPreloader\EntityPreloader;
 use Shredio\DoctrineQueries\Pagination\Pagination;
+use Shredio\DoctrineQueries\Preload\SmartEntityPreloader;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
 use Doctrine\ORM\Query;
 use Shredio\DoctrineQueries\Select\QueryType;
@@ -39,6 +41,18 @@ use Shredio\DoctrineQueries\Select\QueryType;
 final readonly class ObjectQueries extends BaseQueries
 {
 
+	private ?SmartEntityPreloader $preloader;
+
+	public function __construct(
+		SimplifiedQueryBuilderFactory $queryBuilderFactory,
+		?EntityPreloader $preloader = null,
+	)
+	{
+		parent::__construct($queryBuilderFactory);
+
+		$this->preloader = $preloader !== null ? new SmartEntityPreloader($preloader) : null;
+	}
+
 	protected function getQueryType(): QueryType
 	{
 		return QueryType::Object;
@@ -51,16 +65,24 @@ final readonly class ObjectQueries extends BaseQueries
 	 * @param class-string<T> $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param list<string> $preload Associations to eager load
 	 * @param ?Pagination $pagination Pagination settings (limit and offset)
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseResults<T> Collection of entity objects
 	 */
-	public function findBy(string $entity, array $criteria = [], array $orderBy = [], ?Pagination $pagination = null, array|string $joinConfig = 'left'): DatabaseResults
+	public function findBy(
+		string $entity,
+		array $criteria = [],
+		array $orderBy = [],
+		array $preload = [],
+		?Pagination $pagination = null,
+		array|string $joinConfig = 'left',
+	): DatabaseResults
 	{
 		/** @var Query<int, T> $query */
 		$query = $this->createFindBy($entity, $criteria, $orderBy, [], $pagination, $joinConfig)->getQuery();
 
-		return new DatabaseResults($query);
+		return new DatabaseResults($query, $this->createFetchCallback($preload));
 	}
 
 	/**
@@ -73,13 +95,38 @@ final readonly class ObjectQueries extends BaseQueries
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return T|null The found entity object or null if not found
 	 */
-	public function findOneBy(string $entity, array $criteria = [], array $orderBy = [], array|string $joinConfig = 'left'): ?object
+	public function findOneBy(
+		string $entity,
+		array $criteria = [],
+		array $orderBy = [],
+		array|string $joinConfig = 'left',
+	): ?object
 	{
 		/** @var Query<int, T> $query */
 		$query = $this->createFindBy($entity, $criteria, $orderBy, [], null, $joinConfig)->setMaxResults(1)->getQuery();
 
 		/** @var T|null */
 		return $query->getOneOrNullResult();
+	}
+
+	/**
+	 * @param list<string> $preload
+	 * @return (callable(list<object>): void)|null
+	 */
+	private function createFetchCallback(array $preload): ?callable
+	{
+		if ($preload === []) {
+			return null;
+		}
+
+		if ($this->preloader === null) {
+			throw new \LogicException('Entity preloader is not configured, cannot eager load associations.');
+		}
+
+		$preloader = $this->preloader;
+		return static function (array $objects) use ($preloader, $preload): void {
+			$preloader->preload($objects, $preload); // @phpstan-ignore argument.type ($objects is list<object>)
+		};
 	}
 
 }

@@ -26,6 +26,7 @@
 		"phpstan/phpstan-doctrine": "^2.0",
 		"doctrine/orm": "^3.4",
 		"symfony/cache": "^7.3",
-		"symfony/clock": "^7.3"
+		"symfony/clock": "^7.3",
+		"shipmonk/doctrine-entity-preloader": "^1.2"
 	}
 }

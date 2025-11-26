@@ -2,6 +2,7 @@
 
 namespace Tests\Factory;
 
+use Doctrine\DBAL\Driver\Middleware;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManager;
@@ -13,7 +14,10 @@ use Tests\Doctrine\SymbolType;
 final readonly class EntityManagerFactory
 {
 
-	public static function create(): EntityManagerInterface
+	/**
+	 * @param list<Middleware> $middlewares
+	 */
+	public static function create(array $middlewares = []): EntityManagerInterface
 	{
 		if (!Type::hasType(SymbolType::Name)) {
 			Type::addType(SymbolType::Name, SymbolType::class);
@@ -22,6 +26,10 @@ final readonly class EntityManagerFactory
 		$config = ORMSetup::createAttributeMetadataConfiguration([
 			__DIR__ . '/../Entity',
 		], true, cache: new ArrayAdapter());
+		$config->setMiddlewares([
+			...$config->getMiddlewares(),
+			...$middlewares,
+		]);
 
 		$connection = DriverManager::getConnection([
 			'driver' => 'pdo_sqlite',

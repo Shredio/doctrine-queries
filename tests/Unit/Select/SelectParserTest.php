@@ -19,7 +19,7 @@ final class SelectParserTest extends TestCase
 	{
 		$metadata = $this->getMetadata(Article::class, QueryType::Array);
 
-		$this->assertSame(['e0.title', 'e0.content AS text', 'IDENTITY(e0.author) AS author'], SelectParser::getForSelection($metadata, ['title', 'content' => 'text', 'author'], QueryType::Object));
+		$this->assertSame(['e0.title', 'e0.content AS text', 'IDENTITY(e0.author) AS author'], SelectParser::getForSelection($metadata, ['title', 'content' => 'text', 'author'], QueryType::Array));
 	}
 
 	public function testSameColumns(): void
@@ -27,7 +27,7 @@ final class SelectParserTest extends TestCase
 		$metadata = $this->getMetadata(Article::class, QueryType::Array);
 
 		$this->expectException(NonUniqueSelectAliasException::class);
-		SelectParser::getForSelection($metadata, ['title' => 'text', 'content' => 'text'], QueryType::Object);
+		SelectParser::getForSelection($metadata, ['title' => 'text', 'content' => 'text'], QueryType::Array);
 	}
 
 	protected function setUpDatabase(): bool

@@ -185,6 +185,22 @@ final readonly class PhpStanDoctrineService
 	}
 
 	/**
+	 * @return list<Field>
+	 */
+	public function getFieldsFromPreloadType(Type $type): array
+	{
+		$fields = [];
+
+		foreach ($this->iterateConstantArraysInType($type) as $valueType) {
+			foreach ($valueType->getConstantStrings() as $constantString) {
+				$fields[] = new Field($constantString->getValue());
+			}
+		}
+
+		return $fields;
+	}
+
+	/**
 	 * @return list<array{ Field, string }> field, alias
 	 */
 	public function getFieldsFromSelectArrayType(Type $type): array

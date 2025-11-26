@@ -156,6 +156,18 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 				'Call to method Shredio\DoctrineQueries\DoctrineQueries::existsManyBy() - entity Tests\Entity\Article does not have a field or association named `$invalidField`.',
 				145,
 			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ObjectQueries::findBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `unknownField` is not an association.',
+				150,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ObjectQueries::findBy() - entity Tests\Entity\Article has an invalid association path `author`. The field `nonExistentAssociation` is not an association.',
+				155,
+			],
+			[
+				'Call to method Shredio\DoctrineQueries\Query\ObjectQueries::findBy() - entity Tests\Entity\Article has an invalid association in root entity. The field `title` is not an association.',
+				160,
+			]
 		]);
 	}
 

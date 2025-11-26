@@ -7,12 +7,9 @@ use PhpParser\Node\Expr\MethodCall;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
-use PHPStan\Rules\RuleError;
 use PHPStan\Rules\RuleErrorBuilder;
 use PHPStan\Type\Doctrine\ObjectMetadataResolver;
 use PHPStan\Type\Type;
-use PHPStan\Type\TypeCombinator;
-use PHPStan\Type\VerbosityLevel;
 use Shredio\DoctrineQueries\DoctrineQueries;
 use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
 use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
@@ -59,7 +56,7 @@ final readonly class DoctrineQueriesRule implements Rule
 			'findSingleColumnValueBy' => [1 => 'field', 2 => 'criteria'],
 		],
 		ObjectQueries::class => [
-			'findBy' => [1 => 'criteria', 2 => 'orderBy'],
+			'findBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'preload'],
 			'findOneBy' => [1 => 'criteria', 2 => 'orderBy'],
 		],
 		DoctrineQueries::class => [
@@ -160,29 +157,10 @@ final readonly class DoctrineQueriesRule implements Rule
 
 		$errors = [];
 
-		foreach ($rules as $argumentPos => $argumentName) {
-			$arg = $arguments[$argumentName] ?? $arguments[$argumentPos] ?? null;
-			if ($arg === null) {
-				continue; // Argument is optional, skip if not provided
-			}
-
-			$argType = $scope->getType($arg->value);
-
-			$validateAssociation = function (string $type, Field $field) use ($entityClassName, $methodName, $calledOnClass, $queryMetadata): ?IdentifierRuleError {
-				try {
-					$metadata = $queryMetadata->getFieldMetadata($field);
-					if (!$metadata->isAssociation) {
-						return $this->invalidAssociation(
-							$type,
-							$calledOnClass,
-							$methodName,
-							$entityClassName,
-							$field->getParent() ?? '',
-							$field->name,
-						);
-					}
-
-				} catch (FieldNotExistsException) {
+		$validateAssociation = function (string $type, Field $field) use ($entityClassName, $methodName, $calledOnClass, $queryMetadata): ?IdentifierRuleError {
+			try {
+				$metadata = $queryMetadata->getFieldMetadata($field);
+				if (!$metadata->isAssociation) {
 					return $this->invalidAssociation(
 						$type,
 						$calledOnClass,
@@ -191,47 +169,66 @@ final readonly class DoctrineQueriesRule implements Rule
 						$field->getParent() ?? '',
 						$field->name,
 					);
-				} catch (InvalidAssociationPathException $exception) {
-					return $this->invalidAssociation(
-						$type,
-						$calledOnClass,
-						$methodName,
-						$entityClassName,
-						$exception->path,
-						$exception->fieldName,
-					);
 				}
 
+			} catch (FieldNotExistsException) {
+				return $this->invalidAssociation(
+					$type,
+					$calledOnClass,
+					$methodName,
+					$entityClassName,
+					$field->getParent() ?? '',
+					$field->name,
+				);
+			} catch (InvalidAssociationPathException $exception) {
+				return $this->invalidAssociation(
+					$type,
+					$calledOnClass,
+					$methodName,
+					$entityClassName,
+					$exception->path,
+					$exception->fieldName,
+				);
+			}
+
+			return null;
+		};
+		$validateField = function (string $type, Field $field) use ($entityClassName, $methodName, $calledOnClass, $queryMetadata): ?IdentifierRuleError {
+			if ($field->getType() !== FieldSelectType::Field) {
 				return null;
-			};
-			$validateField = function (string $type, Field $field) use ($entityClassName, $methodName, $calledOnClass, $queryMetadata): ?IdentifierRuleError {
-				if ($field->getType() !== FieldSelectType::Field) {
-					return null;
-				}
+			}
 
-				try {
-					$queryMetadata->getFieldMetadata($field);
-				} catch (FieldNotExistsException) {
-					return $this->invalidFieldName(
-						$type,
-						$calledOnClass,
-						$methodName,
-						$entityClassName,
-						$field->name,
-					);
-				} catch (InvalidAssociationPathException $exception) {
-					return $this->invalidAssociation(
-						$type,
-						$calledOnClass,
-						$methodName,
-						$entityClassName,
-						$exception->path,
-						$exception->fieldName,
-					);
-				}
+			try {
+				$queryMetadata->getFieldMetadata($field);
+			} catch (FieldNotExistsException) {
+				return $this->invalidFieldName(
+					$type,
+					$calledOnClass,
+					$methodName,
+					$entityClassName,
+					$field->name,
+				);
+			} catch (InvalidAssociationPathException $exception) {
+				return $this->invalidAssociation(
+					$type,
+					$calledOnClass,
+					$methodName,
+					$entityClassName,
+					$exception->path,
+					$exception->fieldName,
+				);
+			}
 
-				return null;
-			};
+			return null;
+		};
+
+		foreach ($rules as $argumentPos => $argumentName) {
+			$arg = $arguments[$argumentName] ?? $arguments[$argumentPos] ?? null;
+			if ($arg === null) {
+				continue; // Argument is optional, skip if not provided
+			}
+
+			$argType = $scope->getType($arg->value);
 
 			if (isset(self::RequireNamedArguments[$argumentName])) {
 				if ($arg->name === null) {
@@ -307,6 +304,23 @@ final readonly class DoctrineQueriesRule implements Rule
 
 				foreach ($this->service->getArrayFromConstantArray($argType) as $key => $value) { // $value is 'left'|'inner', no need to validate
 					$error = $validateAssociation('joinConfig', new Field($key));
+					if ($error !== null) {
+						$errors[] = $error;
+					}
+				}
+
+				continue;
+			}
+
+			if ($argumentName === 'preload') {
+				$constantArrayError = $this->validateConstantArray($argType, $argumentPos, 'preload');
+				if ($constantArrayError !== null) {
+					$errors[] = $constantArrayError;
+					continue;
+				}
+
+				foreach ($this->service->getFieldsFromPreloadType($argType) as $field) {
+					$error = $validateAssociation('preload', $field);
 					if ($error !== null) {
 						$errors[] = $error;
 					}
