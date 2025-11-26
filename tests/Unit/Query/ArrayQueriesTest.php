@@ -27,6 +27,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class)->asArray();
 
 		$this->assertSame([
@@ -56,6 +57,7 @@ final class ArrayQueriesTest extends TestCase
 		$this->assertInstanceOf(Symbol::class, $columns[0]);
 		$this->assertNull($columns[1]);
 		$this->assertNull($columns[2]);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithJoins(): void
@@ -64,6 +66,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, criteria: ['author.name' => 'Jane Smith'])->asArray();
 
 		$this->assertSame([
@@ -75,6 +78,7 @@ final class ArrayQueriesTest extends TestCase
 				'type' => ArticleType::News,
 			],
 		], $this->unsetColumns($values, ['createdAt']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithSelectJoins(): void
@@ -83,6 +87,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, select: ['id', 'author.name'], orderBy: ['id' => 'ASC'])->asArray();
 
 		$this->assertSame([
@@ -99,6 +104,7 @@ final class ArrayQueriesTest extends TestCase
 				'name' => 'John Doe',
 			],
 		], $this->unsetColumns($values, ['createdAt']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithOrderByJoins(): void
@@ -107,6 +113,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, orderBy: ['author.name' => 'ASC'], select: ['id', 'author.name'])->asArray();
 
 		$this->assertSame([
@@ -123,6 +130,7 @@ final class ArrayQueriesTest extends TestCase
 				'name' => 'John Doe',
 			],
 		], $this->unsetColumns($values, ['createdAt']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithRelationSelection(): void
@@ -131,6 +139,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, select: ['**'])->asArray();
 
 		$this->assertSame([
@@ -165,6 +174,7 @@ final class ArrayQueriesTest extends TestCase
 		$this->assertNull($columns[2]);
 
 		$this->assertHasAllFields($values, Article::AllFields);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithRelationWildcardSelection(): void
@@ -173,6 +183,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, select: ['author.*'])->asArray();
 
 		$this->assertSame([
@@ -189,6 +200,7 @@ final class ArrayQueriesTest extends TestCase
 				'name' => 'Jane Smith',
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testColumnValuesNullableRelations(): void
@@ -197,11 +209,13 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: ['author.role' => 'left'])->asArray();
 
 		$this->assertSame([
 			null, null, 1,
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testColumnValuesNonNullableRelations(): void
@@ -210,11 +224,13 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: 'inner')->asArray();
 
 		$this->assertSame([
 			1,
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testColumnValuesNonNullableRelations2(): void
@@ -223,11 +239,13 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: ['author.role' => 'inner'])->asArray();
 
 		$this->assertSame([
 			1,
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testColumnValuesDistinctNullableRelations(): void
@@ -236,11 +254,13 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', distinct: true, joinConfig: ['author.role' => 'left'])->asArray();
 
 		$this->assertSame([
 			null, 1,
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByRelationWithWildcardRelationSelection(): void
@@ -249,6 +269,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, select: ['author.**'])->asArray();
 
 		$this->assertSame([
@@ -268,6 +289,7 @@ final class ArrayQueriesTest extends TestCase
 				'role' => 1,
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testRelationPrefixFindByRelationWithWildcardRelationSelection(): void
@@ -276,6 +298,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, select: ['*', 'author.**' => 'author_'])->asArray();
 
 		$this->assertSame([
@@ -306,6 +329,7 @@ final class ArrayQueriesTest extends TestCase
 		], $this->unsetColumns($values, $keys = ['createdAt', 'symbol', 'type']));
 
 		$this->assertValuesHasKeys($keys, $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindIndexedByYield(): void
@@ -314,6 +338,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = iterator_to_array($queries->findIndexedBy(Article::class, 'title')->yield());
 
 		$this->assertSame([
@@ -333,6 +358,7 @@ final class ArrayQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 			],
 		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindIndexedBy(): void
@@ -341,6 +367,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findIndexedBy(Article::class, 'title')->asArray();
 
 		$this->assertSame([
@@ -360,6 +387,7 @@ final class ArrayQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 			],
 		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindIndexedByUnsetIndexField(): void
@@ -368,6 +396,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findIndexedBy(Article::class, 'title', select: ['id'])->asArray();
 
 		$this->assertSame([
@@ -381,6 +410,7 @@ final class ArrayQueriesTest extends TestCase
 				'id' => 3,
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindOneBy(): void
@@ -389,6 +419,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$value = $queries->findOneBy(Article::class, ['id' => 1]);
 
 		$this->assertSame([
@@ -398,6 +429,7 @@ final class ArrayQueriesTest extends TestCase
 		], $this->unsetColumns([$value], ['createdAt', 'symbol', 'type'])[0]);
 
 		$this->assertInstanceOf(DateTimeImmutable::class, $value['createdAt']);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindOneByReturnsNull(): void
@@ -406,9 +438,11 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$value = $queries->findOneBy(Article::class, ['id' => 999]);
 
 		$this->assertNull($value);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithPagination(): void
@@ -417,6 +451,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, pagination: new Pagination(2, 1))->asArray();
 
 		$this->assertCount(2, $values);
@@ -432,6 +467,7 @@ final class ArrayQueriesTest extends TestCase
 				'content' => 'This is the third article.',
 			],
 		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithPaginationLimitOnly(): void
@@ -440,6 +476,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, pagination: new Pagination(2))->asArray();
 
 		$this->assertCount(2, $values);
@@ -455,6 +492,7 @@ final class ArrayQueriesTest extends TestCase
 				'content' => 'This is another article.',
 			],
 		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithPaginationAndCriteria(): void
@@ -463,6 +501,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, ['id >' => 1], pagination: new Pagination(1))->asArray();
 
 		$this->assertCount(1, $values);
@@ -473,6 +512,7 @@ final class ArrayQueriesTest extends TestCase
 				'content' => 'This is another article.',
 			],
 		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindColumnValuesByWithPagination(): void
@@ -481,6 +521,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'title', pagination: new Pagination(2))->asArray();
 
 		$this->assertCount(2, $values);
@@ -488,6 +529,7 @@ final class ArrayQueriesTest extends TestCase
 			'Sample Article',
 			'Another Article',
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindColumnValuesByWithPaginationOffset(): void
@@ -496,6 +538,7 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'title', pagination: new Pagination(2, 1))->asArray();
 
 		$this->assertCount(2, $values);
@@ -503,6 +546,7 @@ final class ArrayQueriesTest extends TestCase
 			'Another Article',
 			'Third Article',
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindColumnValuesByWithPaginationAndCriteria(): void
@@ -511,12 +555,14 @@ final class ArrayQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'title', ['id >' => 1], pagination: new Pagination(1))->asArray();
 
 		$this->assertCount(1, $values);
 		$this->assertSame([
 			'Another Article',
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	private function getQueries(): ArrayQueries

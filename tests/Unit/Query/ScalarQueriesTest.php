@@ -28,6 +28,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class)->asArray();
 
 		$this->assertSame([
@@ -56,6 +57,7 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithJoins(): void
@@ -64,6 +66,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, criteria: ['author.name' => 'Jane Smith'])->asArray();
 
 		$this->assertSame([
@@ -75,6 +78,7 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $this->unsetColumns($values, ['createdAt']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithSelectJoins(): void
@@ -83,6 +87,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, orderBy: ['id' => 'ASC'], select: ['id', 'author.name'])->asArray();
 
 		$this->assertSame([
@@ -99,6 +104,7 @@ final class ScalarQueriesTest extends TestCase
 				'name' => 'John Doe',
 			],
 		], $this->unsetColumns($values, ['createdAt']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithOrderByJoins(): void
@@ -107,6 +113,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, orderBy: ['author.name' => 'ASC'], select: ['id', 'author.name'])->asArray();
 
 		$this->assertSame([
@@ -123,6 +130,7 @@ final class ScalarQueriesTest extends TestCase
 				'name' => 'John Doe',
 			],
 		], $this->unsetColumns($values, ['createdAt']));
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithSubQuery(): void
@@ -135,6 +143,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 
 		$subQuery = $em->createQueryBuilder()
 			->select('e.id')
@@ -164,6 +173,7 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithSubQueryBuilder(): void
@@ -176,6 +186,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 
 		$subQuery = $em->createQueryBuilder()
 			->select('e.id')
@@ -205,6 +216,7 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByYield(): void
@@ -213,6 +225,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = iterator_to_array($queries->findBy(Article::class)->yield());
 
 		$this->assertSame([
@@ -241,6 +254,7 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindIndexedByYield(): void
@@ -249,6 +263,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = iterator_to_array($queries->findIndexedBy(Article::class, 'title')->yield());
 
 		$this->assertSame([
@@ -277,6 +292,7 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindIndexedBy(): void
@@ -285,6 +301,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findIndexedBy(Article::class, 'title')->asArray();
 
 		$this->assertSame([
@@ -313,6 +330,7 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindIndexedByUnsetIndexField(): void
@@ -321,6 +339,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findIndexedBy(Article::class, 'title', select: ['id'])->asArray();
 
 		$this->assertSame([
@@ -334,6 +353,7 @@ final class ScalarQueriesTest extends TestCase
 				'id' => 3,
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithRelations(): void
@@ -342,6 +362,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, select: ['**'])->asArray();
 
 		$this->assertSame([
@@ -373,6 +394,7 @@ final class ScalarQueriesTest extends TestCase
 				'author' => 1,
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindPairs(): void
@@ -381,6 +403,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findPairsBy(Article::class, 'id', 'title')->asArray();
 
 		$this->assertSame([
@@ -388,6 +411,7 @@ final class ScalarQueriesTest extends TestCase
 			'Another Article',
 			'Third Article',
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindPairsSameKeyAsValue(): void
@@ -396,6 +420,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findPairsBy(Article::class, 'title', 'title')->asArray();
 
 		$this->assertSame([
@@ -403,6 +428,7 @@ final class ScalarQueriesTest extends TestCase
 			'Another Article' => 'Another Article',
 			'Third Article' => 'Third Article',
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindColumnValues(): void
@@ -411,6 +437,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'title')->asArray();
 
 		$this->assertSame([
@@ -418,6 +445,7 @@ final class ScalarQueriesTest extends TestCase
 			'Another Article',
 			'Third Article',
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindColumnValuesSelectRelation(): void
@@ -426,6 +454,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'author')->asArray();
 
 		$this->assertSame([
@@ -433,6 +462,7 @@ final class ScalarQueriesTest extends TestCase
 			1,
 			2,
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindColumnValuesSelectDistinct(): void
@@ -441,12 +471,14 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'author', distinct: true)->asArray();
 
 		$this->assertSame([
 			1,
 			2,
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindSingleColumnValue(): void
@@ -455,9 +487,11 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$value = $queries->findSingleColumnValueBy(Article::class, 'title', ['id' => 1]);
 
 		$this->assertSame('Sample Article', $value);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindOneBy(): void
@@ -466,6 +500,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$value = $queries->findOneBy(Article::class, ['id' => 1]);
 
 		$this->assertSame([
@@ -476,6 +511,7 @@ final class ScalarQueriesTest extends TestCase
 			'createdAt' => '2021-01-01 00:00:00',
 			'type' => 'news',
 		], $value);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindOneByReturnsNull(): void
@@ -484,9 +520,11 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$value = $queries->findOneBy(Article::class, ['id' => 999]);
 
 		$this->assertNull($value);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithPagination(): void
@@ -495,6 +533,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, pagination: new Pagination(2, 1))->asArray();
 
 		$this->assertCount(2, $values);
@@ -516,6 +555,7 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithPaginationLimitOnly(): void
@@ -524,6 +564,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, pagination: new Pagination(2))->asArray();
 
 		$this->assertCount(2, $values);
@@ -545,6 +586,7 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindByWithPaginationAndCriteria(): void
@@ -553,6 +595,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findBy(Article::class, ['id >' => 1], pagination: new Pagination(1))->asArray();
 
 		$this->assertCount(1, $values);
@@ -566,6 +609,7 @@ final class ScalarQueriesTest extends TestCase
 				'type' => 'news',
 			],
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindColumnValuesByWithPagination(): void
@@ -574,6 +618,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'title', pagination: new Pagination(2))->asArray();
 
 		$this->assertCount(2, $values);
@@ -581,6 +626,7 @@ final class ScalarQueriesTest extends TestCase
 			'Sample Article',
 			'Another Article',
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindColumnValuesByWithPaginationOffset(): void
@@ -589,6 +635,7 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'title', pagination: new Pagination(2, 1))->asArray();
 
 		$this->assertCount(2, $values);
@@ -596,6 +643,7 @@ final class ScalarQueriesTest extends TestCase
 			'Another Article',
 			'Third Article',
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	public function testFindColumnValuesByWithPaginationAndCriteria(): void
@@ -604,12 +652,14 @@ final class ScalarQueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
+		$queryCount = $this->captureQueryCount();
 		$values = $queries->findColumnValuesBy(Article::class, 'title', ['id >' => 1], pagination: new Pagination(1))->asArray();
 
 		$this->assertCount(1, $values);
 		$this->assertSame([
 			'Another Article',
 		], $values);
+		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
 	}
 
 	private function getQueries(): ScalarQueries
