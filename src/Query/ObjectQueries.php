@@ -52,7 +52,7 @@ final readonly class ObjectQueries extends BaseQueries
 	 * @template T of object
 	 * @param class-string<T> $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 * @param list<string> $preload Associations to eager load
 	 * @param ?Pagination $pagination Pagination settings (limit and offset)
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
@@ -79,7 +79,7 @@ final readonly class ObjectQueries extends BaseQueries
 	 * @template T of object
 	 * @param class-string<T> $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return T|null The found entity object or null if not found
 	 */

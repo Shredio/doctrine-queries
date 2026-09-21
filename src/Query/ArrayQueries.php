@@ -72,7 +72,7 @@ final readonly class ArrayQueries extends BaseQueries
 	 * 
 	 * @param class-string $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param ?Pagination $pagination Pagination settings (limit and offset)
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
@@ -98,7 +98,7 @@ final readonly class ArrayQueries extends BaseQueries
 	 *
 	 * @param class-string $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return array<string, ValueType>|null
@@ -125,7 +125,7 @@ final readonly class ArrayQueries extends BaseQueries
 	 *
 	 * @param class-string $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseIndexedResults<mixed, array<string, ValueType>> Collection of array results
@@ -160,7 +160,7 @@ final readonly class ArrayQueries extends BaseQueries
 	 * @param string $key The field to use as keys
 	 * @param string $value The field to use as values
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabasePairs<array-key, ValueType> Key-value pairs collection
 	 */
@@ -185,7 +185,7 @@ final readonly class ArrayQueries extends BaseQueries
 	 * @param class-string $entity The class of the entity to fetch the field from.
 	 * @param string $field The specific field to retrieve from the entity.
 	 * @param array<string, mixed> $criteria Optional criteria to filter the query.
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Optional ordering of the results.
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Optional ordering of the results.
 	 * @param bool $distinct Whether to return distinct values. USE as a named argument.
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseColumnValues<ValueType>

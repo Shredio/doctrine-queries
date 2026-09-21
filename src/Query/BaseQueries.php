@@ -42,7 +42,7 @@ abstract readonly class BaseQueries
 	 * @template T of object
 	 * @param class-string<T> $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria.
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters Examples:
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters Examples:
 	 *   - ['name' => 'ASC'] - sort by name ascending
 	 *   - ['createdAt' => 'DESC'] - sort by creation date descending
 	 * @param string[] $select Fields to select
@@ -88,7 +88,7 @@ abstract readonly class BaseQueries
 	 * @param string $key The field to use as keys
 	 * @param string $value The field to use as values
 	 * @param array<string, mixed> $criteria Filtering criteria.
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder for pairs
 	 */
@@ -118,7 +118,7 @@ abstract readonly class BaseQueries
 	 * @param class-string<T> $entity The entity class to query
 	 * @param string $field The field to retrieve values from
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 * @param bool $distinct Whether to return distinct values
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder for column values

@@ -130,7 +130,7 @@ final readonly class DoctrineQueries
 	/**
 	 * @param class-string $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param array<string, 'left'|'inner'> $joinConfig Join configurations (inner is default)
 	 * @return SubQuery Configured query builder for the entity

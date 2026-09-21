@@ -77,7 +77,7 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * @param class-string<T> $entity The entity class to query
 	 * @param string[] $select Fields to select (empty for all fields)
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 * @param bool $distinct Whether to return distinct results
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder
@@ -264,12 +264,18 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * Applies ordering parameters to a query builder.
 	 * 
 	 * @param QueryBuilder $qb The query builder to modify
-	 * @param array<string, 'ASC'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
 	 */
 	private function applyOrderBy(QueryBuilder $qb, array $orderBy, QueryMetadata $metadata): void
 	{
 		foreach ($orderBy as $field => $direction) {
-			$qb->addOrderBy($metadata->getPathForField(new Field($field)), $direction);
+			$path = $metadata->getPathForField(new Field($field));
+			if ($direction === 'ASC NULLS LAST') {
+				$direction = 'ASC';
+				$qb->addOrderBy(sprintf('CASE WHEN %s IS NULL THEN 1 ELSE 0 END', $path));
+			}
+
+			$qb->addOrderBy($path, $direction);
 		}
 	}
 
