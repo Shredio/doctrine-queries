@@ -35,13 +35,12 @@ final readonly class SmartEntityPreloader
 	private static function preloadNested(EntityPreloader $preloader, array $objects, array $plan): void
 	{
 		foreach ($plan as $association => $subPlan) {
-			if ($subPlan === []) {
-				$preloader->preload($objects, $association);
-			} else {
-				$preloaded = $preloader->preload($objects, $association);
-				if ($preloaded !== []) {
-					self::preloadNested($preloader, $preloaded, $subPlan); // @phpstan-ignore argument.type (phpstan does not handle recursive types)
-				}
+			// EntityPreloader wants a literal-string so that no raw input reaches DQL. The names come from a preload list
+			// DoctrineQueriesRule requires to be a constant array of mapped associations, split by explode(), which PHPStan
+			// types as a plain string; EntityPreloader still resolves each name through the class metadata.
+			$preloaded = $preloader->preload($objects, $association); // @phpstan-ignore argument.type (literal association names split by explode)
+			if ($subPlan !== [] && $preloaded !== []) {
+				self::preloadNested($preloader, $preloaded, $subPlan); // @phpstan-ignore argument.type (phpstan does not handle recursive types)
 			}
 		}
 	}

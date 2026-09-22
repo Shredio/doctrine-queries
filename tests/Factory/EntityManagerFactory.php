@@ -31,6 +31,11 @@ final readonly class EntityManagerFactory
 			...$middlewares,
 		]);
 
+		if (PHP_VERSION_ID >= 80400) {
+			// Doctrine ORM 3.6+ allows symfony/var-exporter 8, which no longer ships the LazyGhost proxies.
+			$config->enableNativeLazyObjects(true);
+		}
+
 		$connection = DriverManager::getConnection([
 			'driver' => 'pdo_sqlite',
 			'path' => ':memory:',

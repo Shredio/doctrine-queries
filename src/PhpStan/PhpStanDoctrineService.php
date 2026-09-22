@@ -336,10 +336,8 @@ final readonly class PhpStanDoctrineService
 		$values = [];
 
 		foreach ($this->iterateConstantArraysInType($type) as $keyType => $valueType) {
-			foreach ($keyType->getConstantScalarValues() as $key) {
-				foreach ($valueType->getConstantScalarValues() as $value) {
-					$values[$key] = $value;
-				}
+			foreach ($valueType->getConstantScalarValues() as $value) {
+				$values[$keyType->getValue()] = $value;
 			}
 		}
 

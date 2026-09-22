@@ -176,7 +176,8 @@ final readonly class DynamicReturnTypeContext
 	 */
 	private function isInnerJoin(array|string $joinConfig, Field $field): ?bool
 	{
-		if (!$field->hasParent()) {
+		$parent = $field->getParent();
+		if ($parent === null) {
 			return null;
 		}
 
@@ -184,7 +185,6 @@ final readonly class DynamicReturnTypeContext
 			return $joinConfig === 'inner';
 		}
 
-		$parent = $field->getParent();
 		if (isset($joinConfig[$parent])) {
 			return $joinConfig[$parent] === 'inner';
 		}
