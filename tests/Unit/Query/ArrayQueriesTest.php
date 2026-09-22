@@ -6,6 +6,7 @@ use DateTimeImmutable;
 use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
+use SortDirection;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 use Tests\Context\DoctrineContext;
 use Tests\Doctrine\Symbol;
@@ -88,7 +89,7 @@ final class ArrayQueriesTest extends TestCase
 		$this->persistFixtures();
 		$queries = $this->getQueries();
 		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, select: ['id', 'author.name'], orderBy: ['id' => 'ASC'])->asArray();
+		$values = $queries->findBy(Article::class, select: ['id', 'author.name'], orderBy: ['id' => SortDirection::Ascending])->asArray();
 
 		$this->assertSame([
 			[
@@ -114,7 +115,7 @@ final class ArrayQueriesTest extends TestCase
 		$this->persistFixtures();
 		$queries = $this->getQueries();
 		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, orderBy: ['author.name' => 'ASC'], select: ['id', 'author.name'])->asArray();
+		$values = $queries->findBy(Article::class, orderBy: ['author.name' => SortDirection::Ascending], select: ['id', 'author.name'])->asArray();
 
 		$this->assertSame([
 			[

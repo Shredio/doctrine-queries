@@ -15,7 +15,8 @@ A simplified and type-safe PHP library for Doctrine ORM that provides an intuiti
 ## Requirements
 
 - PHP 8.3 or higher
-- Doctrine ORM 3.2 or higher
+- Doctrine ORM 3.7 or higher
+- `symfony/polyfill-php86` below PHP 8.6 (installed as a dependency), for the `SortDirection` enum
 
 ## Installation
 
@@ -184,11 +185,24 @@ $criteria = [
 
 ## Sorting
 
+Directions are `SortDirection` cases (native since PHP 8.6, polyfilled below it), the same enum Doctrine ORM 3.7 expects instead of the deprecated `'ASC'` / `'DESC'` strings.
+
 ```php
 $users = $queries->arrays->findBy(
     User::class,
     ['status' => 'active'],
-    orderBy: ['created_at' => 'DESC', 'name' => 'ASC']
+    orderBy: ['created_at' => SortDirection::Descending, 'name' => SortDirection::Ascending]
+)->asArray();
+```
+
+Wrap a direction in `NullsLast` to put `NULL` values after all others, whichever the direction and however the database platform sorts `NULL`:
+
+```php
+use Shredio\DoctrineQueries\Order\NullsLast;
+
+$users = $queries->arrays->findBy(
+    User::class,
+    orderBy: ['last_login_at' => new NullsLast(SortDirection::Descending), 'id' => SortDirection::Ascending]
 )->asArray();
 ```
 
@@ -407,7 +421,7 @@ This provides:
 $users = $queries->arrays->findBy(
     User::class,
     ['status' => 'active'],
-    orderBy: ['created_at' => 'DESC'],
+    orderBy: ['created_at' => SortDirection::Descending],
     select: ['id', 'name', 'email', 'created_at']
 )->asArray();
 
@@ -435,7 +449,7 @@ $articles = $queries->arrays->findBy(
         'status' => 'published',
         'published_at <=' => new DateTime()
     ],
-    orderBy: ['published_at' => 'DESC'],
+    orderBy: ['published_at' => SortDirection::Descending],
     select: ['title', 'author.name', 'published_at'],
     joinConfig: ['author' => 'inner'] // Ensure articles have authors
 )->asArray();
@@ -473,7 +487,7 @@ $products = $queries->arrays->findBy(
         'status' => 'active',
         'category.name' => ['Electronics', 'Books']
     ],
-    orderBy: ['price' => 'ASC'],
+    orderBy: ['price' => SortDirection::Ascending],
     select: ['id', 'name', 'price', 'stock_quantity', 'category.name'],
     joinConfig: ['category' => 'inner']
 )->asArray();

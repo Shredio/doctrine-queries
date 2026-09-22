@@ -3,9 +3,11 @@
 namespace Shredio\DoctrineQueries\Query;
 
 use Doctrine\ORM\QueryBuilder;
+use Shredio\DoctrineQueries\Order\NullsLast;
 use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
 use Shredio\DoctrineQueries\Select\QueryType;
+use SortDirection;
 
 /**
  * Base class for all query executors.
@@ -42,9 +44,10 @@ abstract readonly class BaseQueries
 	 * @template T of object
 	 * @param class-string<T> $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria.
-	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters Examples:
-	 *   - ['name' => 'ASC'] - sort by name ascending
-	 *   - ['createdAt' => 'DESC'] - sort by creation date descending
+	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters Examples:
+	 *   - ['name' => SortDirection::Ascending] - sort by name ascending
+	 *   - ['createdAt' => SortDirection::Descending] - sort by creation date descending
+	 *   - ['position' => new NullsLast(SortDirection::Ascending)] - sort by position ascending, NULL values last
 	 * @param string[] $select Fields to select
 	 * @param ?Pagination $pagination Pagination settings (limit and offset)
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
@@ -88,7 +91,7 @@ abstract readonly class BaseQueries
 	 * @param string $key The field to use as keys
 	 * @param string $value The field to use as values
 	 * @param array<string, mixed> $criteria Filtering criteria.
-	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder for pairs
 	 */
@@ -118,7 +121,7 @@ abstract readonly class BaseQueries
 	 * @param class-string<T> $entity The entity class to query
 	 * @param string $field The field to retrieve values from
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param bool $distinct Whether to return distinct values
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder for column values

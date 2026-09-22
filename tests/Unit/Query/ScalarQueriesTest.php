@@ -7,6 +7,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
+use SortDirection;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 use Tests\Context\DoctrineContext;
 use Tests\Entity\Article;
@@ -88,7 +89,7 @@ final class ScalarQueriesTest extends TestCase
 		$this->persistFixtures();
 		$queries = $this->getQueries();
 		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, orderBy: ['id' => 'ASC'], select: ['id', 'author.name'])->asArray();
+		$values = $queries->findBy(Article::class, orderBy: ['id' => SortDirection::Ascending], select: ['id', 'author.name'])->asArray();
 
 		$this->assertSame([
 			[
@@ -114,7 +115,7 @@ final class ScalarQueriesTest extends TestCase
 		$this->persistFixtures();
 		$queries = $this->getQueries();
 		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, orderBy: ['author.name' => 'ASC'], select: ['id', 'author.name'])->asArray();
+		$values = $queries->findBy(Article::class, orderBy: ['author.name' => SortDirection::Ascending], select: ['id', 'author.name'])->asArray();
 
 		$this->assertSame([
 			[

@@ -4,8 +4,10 @@ namespace Tests\Unit\Query;
 
 use DateTimeImmutable;
 use Shredio\DoctrineQueries\DoctrineQueries;
+use Shredio\DoctrineQueries\Order\NullsLast;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
+use SortDirection;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 use Tests\Context\DoctrineContext;
 use Tests\Doctrine\Symbol;
@@ -70,7 +72,7 @@ final class QueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$values = $queries->scalars->findBy(Article::class, orderBy: ['id' => 'ASC'], select: ['id', 'title'])->asArray();
+		$values = $queries->scalars->findBy(Article::class, orderBy: ['id' => SortDirection::Ascending], select: ['id', 'title'])->asArray();
 
 		$this->assertCount(3, $values);
 		$this->assertSame([
@@ -86,7 +88,7 @@ final class QueriesTest extends TestCase
 
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$values = $queries->scalars->findBy(Article::class, orderBy: ['id' => 'DESC'], select: ['id', 'title'])->asArray();
+		$values = $queries->scalars->findBy(Article::class, orderBy: ['id' => SortDirection::Descending], select: ['id', 'title'])->asArray();
 
 		$this->assertCount(3, $values);
 		$this->assertSame([
@@ -94,6 +96,39 @@ final class QueriesTest extends TestCase
 			['id' => 2, 'title' => 'Another Article'],
 			['id' => 1, 'title' => 'Sample Article'],
 		], $values);
+	}
+
+	public function testOrderByAscNullsLast(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures(static fn (Author $author): array => [
+			new Article(4, 'Fourth Article', 'This is the fourth article.', $author, new Symbol('abc')),
+		]);
+		$queries = $this->getQueries();
+		$values = $queries->scalars->findBy(Article::class, orderBy: [
+			'symbol' => new NullsLast(SortDirection::Ascending),
+			'id' => SortDirection::Ascending,
+		], select: ['id'])->asArray();
+
+		// SQLite sorts NULL first in ascending order, so articles 2 and 3 would lead without NullsLast.
+		$this->assertSame([['id' => 4], ['id' => 1], ['id' => 2], ['id' => 3]], $values);
+	}
+
+	public function testOrderByDescNullsLast(): void
+	{
+		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+
+		$this->persistFixtures(static fn (Author $author): array => [
+			new Article(4, 'Fourth Article', 'This is the fourth article.', $author, new Symbol('abc')),
+		]);
+		$queries = $this->getQueries();
+		$values = $queries->scalars->findBy(Article::class, orderBy: [
+			'symbol' => new NullsLast(SortDirection::Descending),
+			'id' => SortDirection::Ascending,
+		], select: ['id'])->asArray();
+
+		$this->assertSame([['id' => 1], ['id' => 4], ['id' => 2], ['id' => 3]], $values);
 	}
 
 	public function testCount(): void

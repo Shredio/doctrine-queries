@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries\Query;
 
+use Shredio\DoctrineQueries\Order\NullsLast;
 use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
 use Shredio\DoctrineQueries\Result\DatabaseIndexedResults;
@@ -11,6 +12,7 @@ use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\Query;
 use Shredio\DoctrineQueries\Select\QueryType;
 use Shredio\DoctrineQueries\Select\SelectParser;
+use SortDirection;
 
 /**
  * Query executor for returning scalar values from the database.
@@ -33,8 +35,9 @@ use Shredio\DoctrineQueries\Select\SelectParser;
  *     - etc.
  *
  * Sorting examples:
- *     - ['name' => 'ASC'] - sort by name ascending
- *     - ['createdAt' => 'DESC'] - sort by creation date descending
+ *     - ['name' => SortDirection::Ascending] - sort by name ascending
+ *     - ['createdAt' => SortDirection::Descending] - sort by creation date descending
+ *     - ['position' => new NullsLast(SortDirection::Ascending)] - sort by position ascending, NULL values last
  *
  * Select examples:
  *    - ['id', 'name'] - select only id and name fields
@@ -72,7 +75,7 @@ final readonly class ScalarQueries extends BaseQueries
 	 * 
 	 * @param class-string $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param ?Pagination $pagination Pagination settings (limit and offset)
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
@@ -98,7 +101,7 @@ final readonly class ScalarQueries extends BaseQueries
 	 *
 	 * @param class-string $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return array<string, ValueType>|null
@@ -125,7 +128,7 @@ final readonly class ScalarQueries extends BaseQueries
 	 *
 	 * @param class-string $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseIndexedResults<mixed, array<string, ValueType>> Collection of scalar results
@@ -161,7 +164,7 @@ final readonly class ScalarQueries extends BaseQueries
 	 * @param string $key The field to use as keys
 	 * @param string $value The field to use as values
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabasePairs<array-key, ValueType> Key-value pairs collection
 	 */
@@ -186,7 +189,7 @@ final readonly class ScalarQueries extends BaseQueries
 	 * @param class-string $entity The class of the entity to fetch the field from.
 	 * @param string $field The specific field to retrieve from the entity.
 	 * @param array<string, mixed> $criteria Optional criteria to filter the query.
-	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Optional ordering of the results.
+	 * @param array<string, SortDirection|NullsLast> $orderBy Optional ordering of the results.
 	 * @param bool $distinct Whether to return distinct values. USE as a named argument.
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabaseColumnValues<ValueType>

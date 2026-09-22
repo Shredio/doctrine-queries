@@ -4,10 +4,12 @@ namespace Shredio\DoctrineQueries\Query;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query;
+use Shredio\DoctrineQueries\Order\NullsLast;
 use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Preload\SmartEntityPreloader;
 use Shredio\DoctrineQueries\Result\DatabaseResults;
 use Shredio\DoctrineQueries\Select\QueryType;
+use SortDirection;
 
 /**
  * Query executor for returning entities as objects.
@@ -30,8 +32,9 @@ use Shredio\DoctrineQueries\Select\QueryType;
  *     - etc.
  *
  *  Sorting examples:
- *     - ['name' => 'ASC'] - sort by name ascending
- *     - ['createdAt' => 'DESC'] - sort by creation date descending
+ *     - ['name' => SortDirection::Ascending] - sort by name ascending
+ *     - ['createdAt' => SortDirection::Descending] - sort by creation date descending
+ *     - ['position' => new NullsLast(SortDirection::Ascending)] - sort by position ascending, NULL values last
  *
  *  Select examples:
  *    - ['id', 'name'] - select only id and name fields
@@ -52,7 +55,7 @@ final readonly class ObjectQueries extends BaseQueries
 	 * @template T of object
 	 * @param class-string<T> $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param list<string> $preload Associations to eager load
 	 * @param ?Pagination $pagination Pagination settings (limit and offset)
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
@@ -79,7 +82,7 @@ final readonly class ObjectQueries extends BaseQueries
 	 * @template T of object
 	 * @param class-string<T> $entity The entity class to query
 	 * @param array<string, mixed> $criteria Filtering criteria
-	 * @param array<string, 'ASC'|'ASC NULLS LAST'|'DESC'> $orderBy Sorting parameters
+	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return T|null The found entity object or null if not found
 	 */

@@ -6,6 +6,7 @@ use Shredio\DoctrineQueries\DoctrineQueries;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Shredio\DoctrineQueries\Query\ObjectQueries;
 use Shredio\DoctrineQueries\Query\ScalarQueries;
+use SortDirection;
 use Tests\Doctrine\Symbol;
 use Tests\Entity\Article;
 
@@ -41,7 +42,7 @@ class DoctrineQueriesRuleCases
 
 	public function invalidOrderByField(): void
 	{
-		$this->scalarQueries->findBy(Article::class, orderBy: ['invalidOrderField' => 'ASC']);
+		$this->scalarQueries->findBy(Article::class, orderBy: ['invalidOrderField' => SortDirection::Ascending]);
 	}
 
 	public function invalidSelectField(): void
@@ -118,7 +119,7 @@ class DoctrineQueriesRuleCases
 
 	public function requireNamedArguments(): void
 	{
-		$this->scalarQueries->findBy(Article::class, ['title' => 'Test'], ['title' => 'ASC'], ['title'], 'inner');
+		$this->scalarQueries->findBy(Article::class, ['title' => 'Test'], ['title' => SortDirection::Ascending], ['title'], 'inner');
 	}
 
 	public function invalidFieldNameInExistsManyBy(): void
@@ -192,7 +193,7 @@ class DoctrineQueriesRuleCases
 	public function validCases(): void
 	{
 		$this->scalarQueries->findBy(Article::class, ['title' => 'Test']);
-		$this->scalarQueries->findBy(Article::class, orderBy: ['title' => 'ASC']);
+		$this->scalarQueries->findBy(Article::class, orderBy: ['title' => SortDirection::Ascending]);
 		$this->arrayQueries->findBy(Article::class, select: ['title', 'content']);
 		$this->scalarQueries->findSingleColumnValueBy(Article::class, 'title', []);
 		$this->doctrineQueries->countBy(Article::class, ['symbol' => null]);
