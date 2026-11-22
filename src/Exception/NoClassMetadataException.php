@@ -2,8 +2,6 @@
 
 namespace Shredio\DoctrineQueries\Exception;
 
-use PHPStan\Rules\IdentifierRuleError;
-use PHPStan\Rules\RuleErrorBuilder;
 use RuntimeException;
 
 final class NoClassMetadataException extends RuntimeException
@@ -13,16 +11,7 @@ final class NoClassMetadataException extends RuntimeException
 		public readonly string $entity,
 	)
 	{
-		parent::__construct(sprintf('No class metadata found for entity %s', $entity));
-	}
-
-	public function toPhpstanError(): IdentifierRuleError
-	{
-		return RuleErrorBuilder::message(
-			sprintf('The entity class `%s` does not exist or is not managed by Doctrine.', $this->entity),
-		)
-			->identifier('doctrineQueries.invalidEntityClass')
-			->build();
+		parent::__construct(sprintf('Class "%s" is not an entity managed by Doctrine.', $entity));
 	}
 
 }

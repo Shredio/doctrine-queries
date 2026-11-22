@@ -2,243 +2,298 @@
 
 namespace Tests\Unit\Query;
 
-use DateTimeImmutable;
 use Doctrine\ORM\Mapping\MappingException;
-use ShipMonk\DoctrineEntityPreloader\EntityPreloader;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Shredio\DoctrineQueries\Pagination\Pagination;
 use Shredio\DoctrineQueries\Query\ObjectQueries;
-use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
-use Symfony\Component\Clock\Test\ClockSensitiveTrait;
+use SortDirection;
 use Tests\Context\DoctrineContext;
 use Tests\Entity\Article;
+use Tests\Entity\Author;
+use Tests\Entity\ProjectMember;
+use Tests\Entity\ProjectRole;
+use Tests\Entity\Role;
 use Tests\TestCase;
-use Tests\Unit\Helpers;
 
 final class ObjectQueriesTest extends TestCase
 {
 
-	use ClockSensitiveTrait;
 	use DoctrineContext;
-	use Helpers;
+
+	private const array ByIdAscending = ['id' => SortDirection::Ascending];
 
 	public function testFindBy(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+		$this->persistFixtures();
 
+		$values = $this->assertSingleQuery(fn (): array => $this->getQueries()->findBy(Article::class, orderBy: self::ByIdAscending)->asArray());
+
+		$this->assertContainsOnlyInstancesOf(Article::class, $values);
+		$this->assertSame([1, 2, 3], self::ids($values));
+	}
+
+	public function testFindByYield(): void
+	{
+		$this->persistFixtures();
+
+		$values = $this->assertSingleQuery(fn (): array => iterator_to_array($this->getQueries()->findBy(Article::class, orderBy: self::ByIdAscending)->yield(), false));
+
+		$this->assertSame([1, 2, 3], self::ids($values));
+	}
+
+	public function testFindByPagination(): void
+	{
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class)->asArray();
 
-		$this->assertCount(3, $values);
+		$this->assertSame([2, 3], self::ids($queries->findBy(Article::class, orderBy: self::ByIdAscending, pagination: new Pagination(2, 1))->asArray()));
+		$this->assertSame([3], self::ids($queries->findBy(Article::class, orderBy: self::ByIdAscending)->setOffset(2)->asArray()));
+	}
 
-		foreach ($values as $value) {
-			$this->assertInstanceOf(Article::class, $value);
-		}
+	public function testFindByJoins(): void
+	{
+		$this->persistFixtures();
+		$queries = $this->getQueries();
 
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+		$this->assertSame([2], self::ids($this->assertSingleQuery(fn (): array => $queries->findBy(Article::class, ['author.name' => 'Jane Smith'])->asArray())));
+		$this->assertSame([1, 3], self::ids($queries->findBy(Article::class, ['author.role.id' => null], self::ByIdAscending, joinConfig: ['author.role' => 'left'])->asArray()));
+		$this->assertSame([2], self::ids($queries->findBy(Article::class, ['author.role.id' => 1], joinConfig: 'inner')->asArray()));
+		$this->assertSame([2], self::ids($queries->findBy(Article::class, ['author.role.id' => 1], joinConfig: ['author.role' => 'inner'])->asArray()));
 	}
 
 	public function testFindOneBy(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$value = $queries->findOneBy(Article::class);
 
-		$this->assertNotNull($value);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+		$this->assertSame(1, $this->assertSingleQuery(fn (): ?Article => $queries->findOneBy(Article::class, orderBy: self::ByIdAscending))?->getId());
+		$this->assertSame(3, $queries->findOneBy(Article::class, orderBy: ['id' => SortDirection::Descending])?->getId());
+		$this->assertNull($this->assertSingleQuery(fn (): ?Article => $queries->findOneBy(Article::class, ['author' => 999])));
 	}
 
-	public function testFindOneByReturnNull(): void
+	public function testFindOneByJoins(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$value = $queries->findOneBy(Article::class, criteria: ['author' => 'NonExistent']);
 
-		$this->assertNull($value);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+		$this->assertSame(2, $this->assertSingleQuery(fn (): ?Article => $queries->findOneBy(Article::class, ['author.name' => 'Jane Smith']))?->getId());
+		$this->assertSame(1, $queries->findOneBy(Article::class, ['author.role.id' => null], self::ByIdAscending, ['author.role' => 'left'])?->getId());
+		$this->assertSame(2, $queries->findOneBy(Article::class, ['author.role.id' => 1], [], 'inner')?->getId());
+		$this->assertNull($queries->findOneBy(Article::class, ['author.role.id' => null], [], 'inner'));
 	}
 
-	public function testFindByWithJoins(): void
+	public function testAssociationsAreLoadedLazilyWithoutPreload(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, ['author.name' => 'Jane Smith'])->asArray();
 
-		$this->assertCount(1, $values);
-		$this->assertInstanceOf(Article::class, $values[0]);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
+		$authorNames = $this->assertQueryCount(3, function (): array {
+			$values = $this->getQueries()->findBy(Article::class, orderBy: self::ByIdAscending)->asArray();
 
-	public function testFindByWithNullableRelations(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, ['author.role.id' => null], [], joinConfig: ['author.role' => 'left'])->asArray();
-
-		$this->assertCount(2, $values);
-		foreach ($values as $value) {
-			$this->assertInstanceOf(Article::class, $value);
-		}
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindByWithNonNullableRelations(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, ['author.role.id' => 1], joinConfig: 'inner')->asArray();
-
-		$this->assertCount(1, $values);
-		foreach ($values as $value) {
-			$this->assertInstanceOf(Article::class, $value);
-		}
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindByWithNonNullableRelationsArray(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, ['author.role.id' => 1], [], joinConfig: ['author.role' => 'inner'])->asArray();
-
-		$this->assertCount(1, $values);
-		foreach ($values as $value) {
-			$this->assertInstanceOf(Article::class, $value);
-		}
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindOneByWithJoins(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$value = $queries->findOneBy(Article::class, ['author.name' => 'Jane Smith']);
-
-		$this->assertNotNull($value);
-		$this->assertInstanceOf(Article::class, $value);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindOneByWithNullableRelations(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$value = $queries->findOneBy(Article::class, ['author.role.id' => null], [], ['author.role' => 'left']);
-
-		$this->assertNotNull($value);
-		$this->assertInstanceOf(Article::class, $value);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindOneByWithNonNullableRelations(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$value = $queries->findOneBy(Article::class, ['author.role.id' => 1], [], 'inner');
-
-		$this->assertNotNull($value);
-		$this->assertInstanceOf(Article::class, $value);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindByWithPreloading(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$getQueryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, preload: ['author'])->asArray();
-
-		$authorNames = array_map(fn(Article $article) => $article->getAuthor()->getName(), $values);
+			return array_map(static fn (Article $article): string => $article->getAuthor()->getName(), $values);
+		}, 'Expected one query for articles and one query for each of the two authors.');
 
 		$this->assertSame(['John Doe', 'Jane Smith', 'John Doe'], $authorNames);
-		$this->assertSame(2, $getQueryCount(), 'Expected one query for articles and one query for authors.');
 	}
 
-	public function testFindByWithNestedPreloading(): void
+	public function testPreload(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$getQueryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, preload: ['author.role'])->asArray();
 
-		$roleNames = array_map(fn(Article $article) => $article->getAuthor()->getRole()?->getName(), $values);
-
-		$this->assertSame([null, 'Administrator', null], $roleNames);
-		$this->assertSame(3, $getQueryCount(), 'Expected one query for articles, one query for authors and one query for roles.');
-	}
-
-	public function testFindByWithPreloadFieldWhichDoesNotExist(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-
-		self::expectException(MappingException::class);
-		$queries->findBy(Article::class, preload: ['nonExistent'])->asArray();
-	}
-
-	public function testFindByWithPreloadFieldInsteadOfAssociation(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-
-		self::expectException(MappingException::class);
-		$queries->findBy(Article::class, preload: ['title'])->asArray();
-	}
-
-	public function testFindByWithAssociationLazyFetch(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$getQueryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class)->asArray();
-
-		$authorNames = array_map(fn(Article $article) => $article->getAuthor()->getName(), $values);
+		$articles = $this->assertQueryCount(
+			2,
+			fn (): array => $this->getQueries()->findBy(Article::class, orderBy: self::ByIdAscending, preload: ['author'])->asArray(),
+			'Expected one query for articles and one query for authors.',
+		);
+		$authorNames = $this->assertQueryCount(
+			0,
+			static fn (): array => array_map(static fn (Article $article): string => $article->getAuthor()->getName(), $articles),
+			'The preloaded authors are not loaded lazily.',
+		);
 
 		$this->assertSame(['John Doe', 'Jane Smith', 'John Doe'], $authorNames);
+	}
 
-		$this->assertSame(3, $getQueryCount(), 'Expected one query for articles and two queries for authors.');
+	public function testPreloadWithYield(): void
+	{
+		$this->persistFixtures();
+
+		$authorNames = $this->assertQueryCount(2, function (): array {
+			$names = [];
+			foreach ($this->getQueries()->findBy(Article::class, orderBy: self::ByIdAscending, preload: ['author'])->yield() as $article) {
+				$names[] = $article->getAuthor()->getName();
+			}
+
+			return $names;
+		});
+
+		$this->assertSame(['John Doe', 'Jane Smith', 'John Doe'], $authorNames);
+	}
+
+	/**
+	 * @return iterable<string, array{list<string>}>
+	 */
+	public static function provideNestedPreload(): iterable
+	{
+		yield 'nested path' => [['author.role']];
+		yield 'parent and nested path' => [['author', 'author.role']];
+		yield 'nested path before its parent' => [['author.role', 'author']];
+	}
+
+	/**
+	 * @param list<string> $preload
+	 */
+	#[DataProvider('provideNestedPreload')]
+	public function testNestedPreload(array $preload): void
+	{
+		// Two roles, so loading them lazily would take a query for each and could not be mistaken for the preload.
+		$this->persistFixtures(static function (): array {
+			$editor = new Role(2, 'Editor');
+			$editorAuthor = new Author(3, 'Emma Jones', $editor);
+
+			return [$editor, $editorAuthor, new Article(4, 'Fourth Article', 'This is the fourth article.', $editorAuthor)];
+		});
+
+		$articles = $this->assertQueryCount(
+			3,
+			fn (): array => $this->getQueries()->findBy(Article::class, orderBy: self::ByIdAscending, preload: $preload)->asArray(),
+			'Expected one query for articles, one for authors and one for roles.',
+		);
+		$roleNames = $this->assertQueryCount(
+			0,
+			static fn (): array => array_map(static fn (Article $article): ?string => $article->getAuthor()->getRole()?->getName(), $articles),
+			'The preloaded authors and roles are not loaded lazily.',
+		);
+
+		$this->assertSame([null, 'Administrator', null, 'Editor'], $roleNames);
+	}
+
+	public function testPreloadOfMultipleAssociations(): void
+	{
+		$this->persistProjectMembers();
+
+		$members = $this->assertQueryCount(
+			3,
+			fn (): array => $this->getQueries()->findBy(ProjectMember::class, orderBy: self::ByIdAscending, preload: ['author', 'role'])->asArray(),
+			'Expected one query for members, one for authors and one for project roles.',
+		);
+		$descriptions = $this->assertQueryCount(
+			0,
+			static fn (): array => array_map(
+				static fn (ProjectMember $member): string => sprintf('%s (%s)', $member->getAuthor()->getName(), $member->getRole()->getLabel()),
+				$members,
+			),
+			'Both preloaded associations are not loaded lazily.',
+		);
+
+		$this->assertSame(['John Doe (Maintainer)', 'Jane Smith (Maintainer)', 'Jane Smith (Contributor)'], $descriptions);
+	}
+
+	public function testPreloadOfToManyAssociation(): void
+	{
+		$this->persistProjectMembers();
+
+		$roles = $this->assertQueryCount(
+			2,
+			fn (): array => $this->getQueries()->findBy(ProjectRole::class, orderBy: self::ByIdAscending, preload: ['members'])->asArray(),
+			'Expected one query for project roles and one for their members.',
+		);
+		$memberIds = $this->assertQueryCount(
+			0,
+			static fn (): array => array_map(
+				static fn (ProjectRole $role): array => array_map(static fn (ProjectMember $member): int => $member->getId(), $role->getMembers()->getValues()),
+				$roles,
+			),
+			'The preloaded collections are not loaded lazily.',
+		);
+
+		$this->assertEqualsCanonicalizing([1, 2], $memberIds[0]);
+		$this->assertSame([3], $memberIds[1]);
+	}
+
+	public function testNestedPreloadThroughToManyAssociation(): void
+	{
+		$this->persistProjectMembers();
+
+		$roles = $this->assertQueryCount(
+			3,
+			fn (): array => $this->getQueries()->findBy(ProjectRole::class, orderBy: self::ByIdAscending, preload: ['members.author'])->asArray(),
+			'Expected one query for project roles, one for their members and one for the authors.',
+		);
+		$authorNames = $this->assertQueryCount(
+			0,
+			static fn (): array => array_map(
+				static fn (ProjectRole $role): array => array_map(static fn (ProjectMember $member): string => $member->getAuthor()->getName(), $role->getMembers()->getValues()),
+				$roles,
+			),
+			'The preloaded members and authors are not loaded lazily.',
+		);
+
+		$this->assertEqualsCanonicalizing(['John Doe', 'Jane Smith'], $authorNames[0]);
+		$this->assertSame(['Jane Smith'], $authorNames[1]);
+	}
+
+	public function testPreloadWithoutResults(): void
+	{
+		$this->persistFixtures();
+
+		$values = $this->assertSingleQuery(fn (): array => $this->getQueries()->findBy(Article::class, ['id' => 999], preload: ['author.role'])->asArray());
+
+		$this->assertSame([], $values);
+	}
+
+	public function testPreloadOfUnknownField(): void
+	{
+		$this->persistFixtures();
+
+		$this->expectException(MappingException::class);
+
+		$this->getQueries()->findBy(Article::class, preload: ['nonExistent'])->asArray();
+	}
+
+	public function testPreloadOfFieldThatIsNotAnAssociation(): void
+	{
+		$this->persistFixtures();
+
+		$this->expectException(MappingException::class);
+
+		$this->getQueries()->findBy(Article::class, preload: ['title'])->asArray();
+	}
+
+	/**
+	 * @param list<Article> $articles
+	 * @return list<int>
+	 */
+	private static function ids(array $articles): array
+	{
+		return array_map(static fn (Article $article): int => $article->getId(), $articles);
+	}
+
+	/**
+	 * | ProjectMember | author         | role            |
+	 * |---------------|----------------|-----------------|
+	 * | 1             | 1 (John Doe)   | 1 (Maintainer)  |
+	 * | 2             | 2 (Jane Smith) | 1 (Maintainer)  |
+	 * | 3             | 2 (Jane Smith) | 2 (Contributor) |
+	 */
+	private function persistProjectMembers(): void
+	{
+		$this->persistFixtures(static function (Author $johnDoe, Role $administrator, Author $janeSmith): array {
+			$maintainer = new ProjectRole(1, 'Maintainer');
+			$contributor = new ProjectRole(2, 'Contributor');
+
+			return [
+				$maintainer,
+				$contributor,
+				new ProjectMember(1, $johnDoe, $maintainer),
+				new ProjectMember(2, $janeSmith, $maintainer),
+				new ProjectMember(3, $janeSmith, $contributor),
+			];
+		});
 	}
 
 	private function getQueries(): ObjectQueries
 	{
-		return new ObjectQueries(new SimplifiedQueryBuilderFactory($this->createManagerRegistry()));
+		return new ObjectQueries($this->createQueryBuilderFactory());
 	}
 
 }

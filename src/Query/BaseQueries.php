@@ -3,9 +3,12 @@
 namespace Shredio\DoctrineQueries\Query;
 
 use Doctrine\ORM\QueryBuilder;
+use Shredio\DoctrineQueries\Exception\MultipleFieldSelectionException;
 use Shredio\DoctrineQueries\Order\NullsLast;
 use Shredio\DoctrineQueries\Pagination\Pagination;
+use Shredio\DoctrineQueries\Result\DatabaseIndexedResults;
 use Shredio\DoctrineQueries\Result\DatabasePairs;
+use Shredio\DoctrineQueries\Select\Field;
 use Shredio\DoctrineQueries\Select\QueryType;
 use SortDirection;
 
@@ -71,16 +74,43 @@ abstract readonly class BaseQueries
 			queryType: $this->getQueryType(),
 		);
 
-		if ($pagination !== null) {
-			if ($pagination->limit !== null) {
-				$qb->setMaxResults($pagination->limit);
-			}
-			if ($pagination->offset !== null) {
-				$qb->setFirstResult($pagination->offset);
+		return self::applyPagination($qb, $pagination);
+	}
+
+	/**
+	 * Ensures the index field is part of the selection and resolves the result column holding its value.
+	 *
+	 * @param class-string $entity
+	 * @param string[] $select
+	 * @return array{string[], string, bool} The selection, the key column and whether the key column must be removed from the rows
+	 *
+	 * @throws MultipleFieldSelectionException
+	 */
+	protected function prepareIndexedSelection(string $entity, string $indexField, array $select): array
+	{
+		self::assertSingleField($indexField);
+
+		if (isset($select[$indexField])) { // ['field' => 'alias']
+			return [$select, $select[$indexField], false];
+		}
+
+		foreach ($select as $key => $value) {
+			if (is_int($key) && $value === $indexField) { // ['author.name'] is returned in the "name" column
+				return [$select, (new Field($indexField))->name, false];
 			}
 		}
 
-		return $qb;
+		if ($select === []) {
+			if ($this->queryBuilderFactory->getMetadata($entity)->hasField($indexField)) {
+				return [$select, $indexField, false]; // the default selection contains all root fields
+			}
+
+			$select = ['*']; // associations and related fields are not part of the default selection
+		}
+
+		$select[$indexField] = DatabaseIndexedResults::KeyColumn;
+
+		return [$select, DatabaseIndexedResults::KeyColumn, true];
 	}
 
 	/**
@@ -94,6 +124,8 @@ abstract readonly class BaseQueries
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder for pairs
+	 *
+	 * @throws MultipleFieldSelectionException
 	 */
 	protected function createFindPairsBy(
 		string $entity,
@@ -104,6 +136,9 @@ abstract readonly class BaseQueries
 		array|string $joinConfig = 'left',
 	): QueryBuilder
 	{
+		self::assertSingleField($key);
+		self::assertSingleField($value);
+
 		return $this->queryBuilderFactory->create(
 			$entity,
 			[$key => DatabasePairs::KeyColumn, $value => DatabasePairs::ValueColumn],
@@ -125,6 +160,8 @@ abstract readonly class BaseQueries
 	 * @param bool $distinct Whether to return distinct values
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder for column values
+	 *
+	 * @throws MultipleFieldSelectionException
 	 */
 	protected function createFindColumnValues(
 		string $entity,
@@ -136,6 +173,8 @@ abstract readonly class BaseQueries
 		array|string $joinConfig = 'left',
 	): QueryBuilder
 	{
+		self::assertSingleField($field);
+
 		$qb = $this->queryBuilderFactory->create(
 			$entity,
 			[$field => self::ColumnValuesColumn],
@@ -146,16 +185,7 @@ abstract readonly class BaseQueries
 			queryType: $this->getQueryType(),
 		);
 
-		if ($pagination !== null) {
-			if ($pagination->limit !== null) {
-				$qb->setMaxResults($pagination->limit);
-			}
-			if ($pagination->offset !== null) {
-				$qb->setFirstResult($pagination->offset);
-			}
-		}
-
-		return $qb;
+		return self::applyPagination($qb, $pagination);
 	}
 
 	/**
@@ -165,16 +195,55 @@ abstract readonly class BaseQueries
 	 * @param class-string<T> $entity The entity class to query
 	 * @param string $field The field to retrieve a value from
 	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters, they decide which row is the first one
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder for single value (limited to 1 result)
+	 *
+	 * @throws MultipleFieldSelectionException
 	 */
-	protected function createFindSingleColumnValue(string $entity, string $field, array $criteria): QueryBuilder
+	protected function createFindSingleColumnValue(
+		string $entity,
+		string $field,
+		array $criteria,
+		array $orderBy = [],
+		array|string $joinConfig = 'left',
+	): QueryBuilder
 	{
+		self::assertSingleField($field);
+
 		return $this->queryBuilderFactory->create(
 			$entity,
 			[$field => self::SingleColumnValueColumn],
 			$criteria,
+			$orderBy,
+			joinConfig: $joinConfig,
 			queryType: $this->getQueryType(),
 		)->setMaxResults(1);
+	}
+
+	private static function applyPagination(QueryBuilder $qb, ?Pagination $pagination): QueryBuilder
+	{
+		if ($pagination?->limit !== null) {
+			$qb->setMaxResults($pagination->limit);
+		}
+
+		if ($pagination?->offset !== null) {
+			$qb->setFirstResult($pagination->offset);
+		}
+
+		return $qb;
+	}
+
+	/**
+	 * A wildcard selects more columns than the single one the method reads its values from.
+	 *
+	 * @throws MultipleFieldSelectionException
+	 */
+	private static function assertSingleField(string $field): void
+	{
+		if (!(new Field($field))->getType()->isField()) {
+			throw new MultipleFieldSelectionException(sprintf('Field "%s" is not a single field selection.', $field));
+		}
 	}
 
 }

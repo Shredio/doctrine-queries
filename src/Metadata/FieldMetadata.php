@@ -7,6 +7,7 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToOneAssociationMapping;
 use Doctrine\ORM\Mapping\OneToOneOwningSideMapping;
 use Doctrine\Persistence\Mapping\ClassMetadataFactory;
+use Shredio\DoctrineQueries\Exception\UnsupportedFieldTypeException;
 use Shredio\DoctrineQueries\Select\Field;
 
 /**
@@ -30,8 +31,18 @@ final readonly class FieldMetadata
 	{
 	}
 
+	public function isToManyAssociation(): bool
+	{
+		return $this->isAssociation && $this->entityMetadata->isCollectionValuedAssociation($this->field->name);
+	}
+
+	public function getAssociationMapping(): AssociationMapping
+	{
+		return $this->entityMetadata->getAssociationMapping($this->field->name);
+	}
+
 	/**
-	 * @internal phpstan
+	 * @throws UnsupportedFieldTypeException
 	 */
 	public function getFieldType(?bool $isInnerJoin = null): FieldType
 	{
@@ -82,7 +93,7 @@ final readonly class FieldMetadata
 	{
 		if ($mapping instanceof ManyToOneAssociationMapping) {
 			if (count($mapping->joinColumns) !== 1) {
-				throw new \LogicException('Composite foreign keys are not supported.');
+				throw new UnsupportedFieldTypeException(sprintf('Composite foreign key of %s::$%s is not supported.', $this->entityMetadata->getName(), $this->field->name));
 			}
 
 			return $mapping->joinColumns[0]->nullable ?? true;
@@ -90,13 +101,17 @@ final readonly class FieldMetadata
 
 		if ($mapping instanceof OneToOneOwningSideMapping) {
 			if (count($mapping->joinColumns) !== 1) {
-				throw new \LogicException('Composite foreign keys are not supported.');
+				throw new UnsupportedFieldTypeException(sprintf('Composite foreign key of %s::$%s is not supported.', $this->entityMetadata->getName(), $this->field->name));
 			}
 
 			return $mapping->joinColumns[0]->nullable ?? true;
 		}
 
-		throw new \LogicException('Only ManyToOne or OneToOne (owning side) associations are supported.');
+		throw new UnsupportedFieldTypeException(sprintf(
+			'Association %s::$%s is not supported, only ManyToOne and owning side of OneToOne associations are.',
+			$this->entityMetadata->getName(),
+			$this->field->name,
+		));
 	}
 
 }

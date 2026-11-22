@@ -5,8 +5,8 @@ namespace Tests\Entity;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;
+use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
-use Tests\Entity\Article;
 
 #[Entity]
 class ArticleHashtag
@@ -14,8 +14,10 @@ class ArticleHashtag
 
 	public function __construct(
 		#[Id]
-		#[ManyToOne(targetEntity: Article::class, inversedBy: 'hashtags')]
+		#[ManyToOne(targetEntity: Article::class, inversedBy: 'hashTags')]
+		#[JoinColumn(nullable: false)]
 		private Article $article,
+		#[Id]
 		#[Column(type: 'string')]
 		private string $hashtag,
 	) {}

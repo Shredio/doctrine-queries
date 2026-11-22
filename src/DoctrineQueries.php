@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries;
 
+use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use LogicException;
@@ -14,6 +15,7 @@ use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
 use Shredio\DoctrineQueries\Query\SubQuery;
 use Shredio\DoctrineQueries\Result\DatabaseExistenceResults;
+use Shredio\DoctrineQueries\Select\QueryType;
 use SortDirection;
 
 /**
@@ -70,23 +72,20 @@ final readonly class DoctrineQueries
 	}
 
 	/**
-	 * Determines if an entity exists in the database based on the given criteria.
+	 * Checks which of the given sets of values exist, in a single query (or a few for many sets) instead of one per set.
+	 *
+	 * Example: $existing = $queries->existsManyBy(Article::class, [['id' => 1], ['id' => 2]]); $existing->has(['id' => 1])
 	 *
 	 * @param class-string $entity The class of the entity to check for existence.
-	 * @param iterable<array<string, mixed>> $values
+	 * @param iterable<array<string, mixed>> $values Sets of values of the fields and associations of the entity itself
 	 *
-	 * @return DatabaseExistenceResults<array<string, scalar|null>>
+	 * @return DatabaseExistenceResults<array<string, scalar|null>> Answers has() for each of the sets
 	 */
 	public function existsManyBy(string $entity, iterable $values): DatabaseExistenceResults
 	{
-		$qb = $this->queryBuilderFactory->createExistsManyBy($entity, $values);
-		if ($qb === null) {
-			return new DatabaseExistenceResults([]);
-		}
-
-		/** @var iterable<array<string, scalar|null>> $values */
-		$values = $qb->getQuery()->toIterable();
-		return new DatabaseExistenceResults($values);
+		return new DatabaseExistenceResults(
+			$this->fetchExistingValues($this->queryBuilderFactory->createExistsManyBy($entity, $values)),
+		);
 	}
 
 	/**
@@ -94,7 +93,7 @@ final readonly class DoctrineQueries
 	 *
 	 * @param class-string $entity
 	 * @param array<string, mixed> $criteria
-	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (inner is default)
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return int<0, max>
 	 */
 	public function countBy(
@@ -113,6 +112,9 @@ final readonly class DoctrineQueries
 
 	/**
 	 * Deletes entities by a set of criteria.
+	 *
+	 * Criteria on related entities (e.g. 'author.name') are not supported because DQL DELETE cannot join,
+	 * use a sub-query instead: ['author' => $queries->subQuery(Author::class, ['name' => 'John'], select: ['id'])]
 	 *
 	 * @param class-string $entity
 	 * @param array<string, mixed> $criteria
@@ -134,7 +136,7 @@ final readonly class DoctrineQueries
 	 * @param array<string, mixed> $criteria Filtering criteria
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
-	 * @param array<string, 'left'|'inner'> $joinConfig Join configurations (inner is default)
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return SubQuery Configured query builder for the entity
 	 */
 	public function subQuery(
@@ -142,14 +144,14 @@ final readonly class DoctrineQueries
 		array $criteria = [],
 		array $orderBy = [],
 		array $select = [],
-		array $joinConfig = [],
+		array|string $joinConfig = 'left',
 	): SubQuery
 	{
 		return new SubQuery(
 			fn (QueryMetadata $queryMetadata): QueryBuilder =>
 				$this->queryBuilderFactory
 					->withParentQueryMetadata($queryMetadata)
-					->create($entity, $select, $criteria, $orderBy, joinConfig: $joinConfig, queryType: $queryMetadata->queryType),
+					->create($entity, $select, $criteria, $orderBy, joinConfig: $joinConfig, queryType: QueryType::SubQuery),
 		);
 	}
 
@@ -175,6 +177,10 @@ final readonly class DoctrineQueries
 		if ($result === null) {
 			return null;
 		}
+		if (is_string($result)) {
+			// A driver can return integers as strings, e.g. PDO with ATTR_STRINGIFY_FETCHES.
+			$result = filter_var($result, FILTER_VALIDATE_INT, FILTER_NULL_ON_FAILURE) ?? $result;
+		}
 		if (!is_int($result)) {
 			throw new LogicException(sprintf('Entity %s has non-integer ID.', $entity));
 		}
@@ -194,6 +200,20 @@ final readonly class DoctrineQueries
 			$this->readFile($filePath),
 			$this->queryBuilderFactory->getConnectionFor($entityForConnection),
 		);
+	}
+
+	/**
+	 * @param list<QueryBuilder> $queryBuilders
+	 * @return iterable<array<string, scalar|null>>
+	 */
+	private function fetchExistingValues(array $queryBuilders): iterable
+	{
+		foreach ($queryBuilders as $qb) {
+			// Scalar hydration returns database values, objects of custom types or dates could not be indexed.
+			/** @var iterable<array<string, scalar|null>> $rows */
+			$rows = $qb->getQuery()->toIterable(hydrationMode: AbstractQuery::HYDRATE_SCALAR);
+			yield from $rows;
+		}
 	}
 
 	private function readFile(string $filePath): string

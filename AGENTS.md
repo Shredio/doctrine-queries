@@ -30,7 +30,7 @@ $names = $queries->scalars->findColumnValuesBy(User::class, 'name')->asArray();
 // Equals
 ['name' => 'John', 'id' => 42]
 
-// Operators  
+// Operators (only =, !=, <>, <, <=, >, >=, LIKE, NOT LIKE - others throw)
 ['age >' => 18, 'status !=' => 'banned', 'score <=' => 100]
 
 // LIKE patterns
@@ -39,8 +39,15 @@ $names = $queries->scalars->findColumnValuesBy(User::class, 'name')->asArray();
 // Null handling
 ['deleted_at' => null, 'active !=' => null]
 
-// Arrays (IN/NOT IN)
+// Arrays (IN/NOT IN), objects in a list (dates, custom DBAL type values) are converted by the column type
 ['status' => ['active', 'pending'], 'id !=' => [1, 2, 3]]
+
+// A null in a list is compared by IS NULL: active or no status / a status other than banned
+['status' => ['active', null], 'role !=' => ['banned', null]]
+
+// Through a to-many association: EXISTS sub-query, each root entity once, all criteria of the association match one related entity
+['comments.author.name' => 'John', 'comments.approved' => true]
+// Joined (a row per related entity) only when select or orderBy uses the association too
 
 // Multiple criteria (AND)
 ['age >' => 18, 'status' => 'active', 'city' => ['Prague', 'Brno']]
@@ -52,7 +59,7 @@ $names = $queries->scalars->findColumnValuesBy(User::class, 'name')->asArray();
 // Specific fields
 select: ['id', 'name', 'email']
 
-// With aliases
+// With aliases (identifiers only, otherwise InvalidSelectAliasException)
 select: ['id' => 'userId', 'name' => 'fullName']
 
 // Related fields (auto-joins)
@@ -60,7 +67,7 @@ select: ['title', 'author.name', 'category.name']
 
 // Wildcards
 select: ['*']        // All entity fields (no relations)
-select: ['**']       // All fields + relation IDs
+select: ['**']       // All fields + relation IDs (ManyToOne and owning OneToOne)
 select: ['author.*'] // All author fields
 select: ['author.**'] // All author fields + its relations
 select: ['*', 'author.**' => 'author_'] // With prefix
@@ -85,7 +92,7 @@ joinConfig: ['author.role' => 'left'] // LEFT JOIN nested relation
 
 // Find single
 ->findOneBy($entity, $criteria, ...)
-->findSingleColumnValueBy($entity, $field, $criteria)
+->findSingleColumnValueBy($entity, $field, $criteria, orderBy: [...], joinConfig: ...) // null for no row and for NULL, findOneBy(select: [$field]) tells them apart
 
 // Column values
 ->findColumnValuesBy($entity, $field, $criteria, $orderBy, distinct: true)
@@ -93,10 +100,10 @@ joinConfig: ['author.role' => 'left'] // LEFT JOIN nested relation
 // Utilities
 $queries->countBy($entity, $criteria)
 $queries->existsBy($entity, $criteria)  
-$queries->deleteBy($entity, $criteria)
+$queries->deleteBy($entity, $criteria) // no criteria on relations ('author.name'), use ['author' => $queries->subQuery(...)]
 
 // Subqueries
-$queries->subQuery($entity, $criteria, select: ['id'])
+$queries->subQuery($entity, $criteria, select: ['id']) // has to select exactly one column
 ```
 
 ## Results
@@ -111,6 +118,10 @@ $queries->subQuery($entity, $criteria, select: ['id'])
 // For key-value pairs
 ->findPairsBy(User::class, 'id', 'name')->asArray()
 // Returns: [1 => 'John', 2 => 'Jane']
+
+// asArray() of findPairsBy()/findIndexedBy() throws InvalidResultKeyException for a NULL or object key:
+// exclude NULL with ['field !=' => null], use scalars for database values, or iterate over yield()
+// A wildcard ('*', 'author.**') where a single field is expected throws MultipleFieldSelectionException
 ```
 
 ## Performance Tips

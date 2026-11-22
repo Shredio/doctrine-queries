@@ -3,7 +3,7 @@
 namespace Shredio\DoctrineQueries\Metadata;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
-use Doctrine\ORM\Mapping\ManyToOneAssociationMapping;
+use Doctrine\ORM\Mapping\ToOneOwningSideMapping;
 use Doctrine\Persistence\Mapping\ClassMetadataFactory;
 use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
 use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
@@ -70,8 +70,8 @@ final class FieldMetadataFactory
 		}
 
 		foreach ($metadata->getAssociationMappings() as $mapping) {
-			if (!$mapping instanceof ManyToOneAssociationMapping) {
-				continue;
+			if (!$mapping instanceof ToOneOwningSideMapping) {
+				continue; // only many-to-one and the owning side of one-to-one have a column with the identifier
 			}
 
 			yield $this->createKnownField($metadata, new Field($fieldPrefix . $mapping->fieldName), true);
@@ -90,39 +90,27 @@ final class FieldMetadataFactory
 			return $this->metadata;
 		}
 
-		if (!isset($this->metadataCache[$parent])) {
-			$tempParent = $parent;
-			// Walk up the parent chain to find the nearest cached metadata
-			while (($pos = strrpos($tempParent, '.')) !== false) {
-				$tempParent = substr($tempParent, 0, $pos);
-				if (isset($this->metadataCache[$tempParent])) {
-					break;
-				}
-			}
-
-			if ($pos !== false) {
-				$metadata = $this->metadataCache[$tempParent];
-				$parent = substr($parent, $pos + 1);
-			} else {
-				$metadata = $this->metadata;
-			}
-
-			$parts = explode('.', $parent);
-
-			foreach ($parts as $part) {
-				if (!$metadata->hasAssociation($part)) {
-					throw new InvalidAssociationPathException($metadata->getName(), $parent, $part);
-				}
-
-				$metadata = $this->classMetadataFactory->getMetadataFor(
-					$metadata->getAssociationMapping($part)->targetEntity,
-				);
-
-				$this->metadataCache[$parent] = $metadata;
-			}
+		if (isset($this->metadataCache[$parent])) {
+			return $this->metadataCache[$parent];
 		}
 
-		return $this->metadataCache[$parent];
+		// Every prefix of the path is resolved (and cached) under its full path, e.g. "author" before "author.role".
+		$pos = strrpos($parent, '.');
+		if ($pos === false) {
+			$metadata = $this->metadata;
+			$association = $parent;
+		} else {
+			$metadata = $this->getClassMetadata(substr($parent, 0, $pos));
+			$association = substr($parent, $pos + 1);
+		}
+
+		if (!$metadata->hasAssociation($association)) {
+			throw new InvalidAssociationPathException($metadata->getName(), $parent, $association);
+		}
+
+		return $this->metadataCache[$parent] = $this->classMetadataFactory->getMetadataFor(
+			$metadata->getAssociationMapping($association)->targetEntity,
+		);
 	}
 
 }

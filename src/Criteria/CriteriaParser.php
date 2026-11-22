@@ -15,6 +15,21 @@ use Shredio\DoctrineQueries\Select\Field;
 final readonly class CriteriaParser
 {
 
+	/**
+	 * Supported operators (normalized to upper case with single spaces) mapped to the DQL operator they produce.
+	 */
+	private const array SupportedOperators = [
+		'=' => '=',
+		'!=' => '!=',
+		'<>' => '!=',
+		'<' => '<',
+		'<=' => '<=',
+		'>' => '>',
+		'>=' => '>=',
+		'LIKE' => 'LIKE',
+		'NOT LIKE' => 'NOT LIKE',
+	];
+
 	private function __construct()
 	{
 		// Prevent instantiation
@@ -38,14 +53,21 @@ final readonly class CriteriaParser
 		}
 		$parameterName .= '_';
 
-		foreach ($criteria as $field => $value) {
-			if ($field === '') {
+		foreach ($criteria as $criteriaKey => $value) {
+			if ($criteriaKey === '') {
 				throw new InvalidArgumentException('Field cannot be empty');
 			}
 
-			[$field, $operator] = self::parseSingleField($field);
+			[$field, $rawOperator] = self::parseSingleField($criteriaKey);
+			$operator = self::normalizeOperator($rawOperator) ?? throw new InvalidArgumentException(sprintf(
+				'Unsupported operator "%s" in criteria "%s". Supported operators are: %s.',
+				$rawOperator,
+				$criteriaKey,
+				implode(', ', self::getSupportedOperators()),
+			));
 			$operand = '%s';
 			$parameters = null;
+			$orIsNull = false;
 
 			if ($value instanceof SubQuery) {
 				if ($queryMetadata === null) {
@@ -71,15 +93,38 @@ final readonly class CriteriaParser
 			} else if (is_iterable($value)) {
 				$value = self::toArray($value);
 
+				// NULL equals no value in SQL, so "IN (NULL)" matches no row, it is compared by IS NULL instead.
+				$containsNull = in_array(null, $value, true);
+				if ($containsNull) {
+					$value = array_values(array_filter($value, static fn (mixed $item): bool => $item !== null));
+				}
+
 				if ($operator === '=') {
-					$operator = 'IN';
+					if ($value === [] && $containsNull) { // only NULL, an empty list matches no row as IN ()
+						$operator = 'IS NULL';
+						$operand = null;
+					} else {
+						$operator = 'IN';
+						$operand = '(%s)';
+						$orIsNull = $containsNull;
+					}
 				} else if ($operator === '!=') {
-					$operator = 'NOT IN';
+					if ($value === [] && !$containsNull) {
+						// NOT IN with an empty list matches every row, but DBAL expands it to NOT IN (NULL), which matches none.
+						continue;
+					}
+
+					if ($value === []) { // only NULL
+						$operator = 'IS NOT NULL';
+						$operand = null;
+					} else {
+						// NOT IN matches no NULL already, the NULL in the list is just left out.
+						$operator = 'NOT IN';
+						$operand = '(%s)';
+					}
 				} else {
 					throw new InvalidArgumentException('Only = and != operators are allowed with array value');
 				}
-
-				$operand = '(%s)';
 			} else if ($value === null) {
 				if ($operator === '=') {
 					$operator = 'IS NULL';
@@ -108,11 +153,32 @@ final readonly class CriteriaParser
 				$param,
 				$operand !== null ? $value : null,
 				$parameters,
+				$orIsNull,
 			);
 		}
 	}
 
 	/**
+	 * Returns the normalized operator, or null when the operator is not supported.
+	 */
+	public static function normalizeOperator(string $operator): ?string
+	{
+		$normalized = strtoupper(trim((string) preg_replace('/\s+/', ' ', $operator)));
+
+		return self::SupportedOperators[$normalized] ?? null;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	public static function getSupportedOperators(): array
+	{
+		return array_keys(self::SupportedOperators);
+	}
+
+	/**
+	 * Splits a criteria key into the field and the raw (not validated) operator.
+	 *
 	 * @return array{Field, string}
 	 */
 	public static function parseSingleField(string $field): array

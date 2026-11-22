@@ -133,7 +133,13 @@ final readonly class DoctrineQueriesRule implements Rule
 			$classMetadataFactory = new PhpstanClassMetadataFactory($this->objectMetadataResolver);
 			$entityMetadata = $classMetadataFactory->getMetadataFor($entityClassName);
 		} catch (NoClassMetadataException $exception) {
-			return [$exception->toPhpstanError()];
+			return [
+				RuleErrorBuilder::message(
+					sprintf('The entity class `%s` does not exist or is not managed by Doctrine.', $exception->entity),
+				)
+					->identifier('doctrineQueries.invalidEntityClass')
+					->build(),
+			];
 		}
 
 		$queryMetadata = new QueryMetadata($classMetadataFactory, $entityMetadata, QueryType::Array); // QueryType here does not matter, we only use it to validate field names

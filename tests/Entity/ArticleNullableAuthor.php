@@ -2,14 +2,11 @@
 
 namespace Tests\Entity;
 
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
-use Doctrine\ORM\Mapping\OneToMany;
 use Symfony\Component\Clock\DatePoint;
 use Tests\Doctrine\Symbol;
 use Tests\Entity\Enum\ArticleType;
@@ -19,9 +16,6 @@ class ArticleNullableAuthor
 {
 
 	public const array AllFields = ['id', 'title', 'content', 'author', 'symbol', 'createdAt', 'type'];
-
-	#[OneToMany(targetEntity: ArticleHashtag::class, mappedBy: 'article')]
-	private Collection $hashTags;
 
 	public function __construct(
 		#[Id]
@@ -40,9 +34,7 @@ class ArticleNullableAuthor
 		private \DateTimeImmutable $createdAt = new DatePoint(),
 		#[Column(type: 'string', enumType: ArticleType::class)]
 		private ArticleType $type = ArticleType::News,
-	) {
-		$this->hashTags = new ArrayCollection();
-	}
+	) {}
 
 	public function getId(): int
 	{
@@ -59,7 +51,7 @@ class ArticleNullableAuthor
 		return $this->content;
 	}
 
-	public function getAuthor(): Author
+	public function getAuthor(): ?Author
 	{
 		return $this->author;
 	}

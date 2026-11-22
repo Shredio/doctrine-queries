@@ -15,7 +15,7 @@ A simplified and type-safe PHP library for Doctrine ORM that provides an intuiti
 ## Requirements
 
 - PHP 8.3 or higher
-- Doctrine ORM 3.7 or higher
+- Doctrine ORM 3.7 or higher with Doctrine DBAL 4
 - `symfony/polyfill-php86` below PHP 8.6 (installed as a dependency), for the `SortDirection` enum
 
 ## Installation
@@ -105,7 +105,12 @@ $userNames = $queries->scalars->findColumnValuesBy(User::class, 'name')->asArray
 
 $userName = $queries->scalars->findSingleColumnValueBy(User::class, 'name', ['id' => 1]);
 // Returns: string|null
+
+// The ordering decides which row is the first one
+$latestLogin = $queries->scalars->findSingleColumnValueBy(User::class, 'lastLoginAt', ['status' => 'active'], orderBy: ['lastLoginAt' => SortDirection::Descending]);
 ```
+
+`findSingleColumnValueBy()` returns `null` both when no row matches and when the value is `NULL`. To tell them apart, use `findOneBy($entity, $criteria, select: [$field])`, which returns `null` for no row and `[$field => null]` for a `NULL` value.
 
 ## Criteria System
 
@@ -125,8 +130,9 @@ The library supports a flexible criteria system with various operators:
 ### Comparison Operators
 
 ```php
-// Not equals
+// Not equals (`<>` works the same)
 ['status !=' => 'inactive']
+['status <>' => 'inactive']
 
 // Greater than
 ['age >' => 18]
@@ -151,6 +157,8 @@ The library supports a flexible criteria system with various operators:
 ['email NOT LIKE' => '%@spam.com']
 ```
 
+Supported operators are `=`, `!=`, `<>`, `<`, `<=`, `>`, `>=`, `LIKE` and `NOT LIKE`, case-insensitive. Any other operator throws an `InvalidArgumentException`, so a criteria key never reaches DQL unchecked. Fields are validated against the entity mapping as well.
+
 ### Null Handling
 
 ```php
@@ -170,6 +178,37 @@ The library supports a flexible criteria system with various operators:
 
 // NOT IN clause
 ['status !=' => ['banned', 'deleted']]
+
+// An empty list matches nothing with IN and everything with NOT IN
+['id' => []]  // no rows
+['id !=' => []]  // all rows
+
+// Objects in a list are converted by the type of the column, e.g. dates or the value objects of a custom DBAL type
+['createdAt' => [new DateTimeImmutable('2024-01-01'), new DateTimeImmutable('2024-02-01')]]
+```
+
+SQL never matches `NULL` by a comparison, so `['status !=' => 'banned']` skips rows whose status is `NULL`. A `null` in a list is compared by `IS NULL` instead: `['status' => ['active', null]]` matches active rows and rows without a status, `['status !=' => ['banned', null]]` matches rows with a status other than banned.
+
+### Criteria on To-Many Associations
+
+A criteria reached through a to-many association (one-to-many or many-to-many) filters the root entities by an `EXISTS` sub-query, it does not join the association. Each entity is returned once, a limit counts the entities and the results can be iterated by `yield()`:
+
+```php
+// Posts with a comment by John, each post once
+$posts = $queries->arrays->findBy(Post::class, ['comments.author.name' => 'John'])->asArray();
+
+// All criteria of one association have to match the same related entity
+$posts = $queries->arrays->findBy(Post::class, ['comments.author.name' => 'John', 'comments.approved' => true])->asArray();
+
+// Posts without any comment, as a left join of no comment would match
+$posts = $queries->arrays->findBy(Post::class, ['comments.id' => null])->asArray();
+```
+
+When the selection or the ordering uses a field of the association too, the association is joined and the criteria filter its rows, a row per matching related entity:
+
+```php
+// Only the approved comments of each post
+$comments = $queries->scalars->findBy(Post::class, ['comments.approved' => true], select: ['id', 'comments.content'])->asArray();
 ```
 
 ### Multiple Criteria (AND)
@@ -241,9 +280,15 @@ $posts = $queries->arrays->findBy(
 $posts = $queries->arrays->findBy(
     Post::class,
     ['status' => 'published'],
-    select: ['**'] // Selects all fields including ManyToOne relations
+    select: ['**'] // Selects all fields and the identifiers of ManyToOne and owning OneToOne relations
 )->asArray();
 ```
+
+Without `select` the result contains the fields of the entity, the same as `select: ['*']`.
+
+An alias (or the prefix of a wildcard) is written to the DQL as it is, so it has to be an identifier: letters, digits and underscores, not starting with a digit. Any other alias throws an `InvalidSelectAliasException`.
+
+Selecting a field of a to-many association returns a row per related entity. Doctrine refuses to iterate a query joining a to-many association, so `yield()` of such a query loads all rows at once.
 
 ## Working with Results
 
@@ -274,6 +319,15 @@ foreach ($queries->arrays->findBy(User::class)->yield() as $user) {
 $userOptions = $queries->arrays->findPairsBy(User::class, 'id', 'name')->asArray();
 // Returns: [1 => 'John', 2 => 'Jane', ...]
 ```
+
+PHP arrays accept only integers and strings as keys, so `asArray()` of `findPairsBy()` and `findIndexedBy()` throws an `InvalidResultKeyException` for a row whose key is `NULL` or an object (e.g. an enum or a date hydrated by `$queries->arrays`). Exclude `NULL` keys with the criteria, use `$queries->scalars` for the database value of an object, or iterate over `yield()`, which returns any key as it is:
+
+```php
+// Roles are optional, authors without one would have a NULL key
+$authorsByRole = $queries->scalars->findPairsBy(Author::class, 'role.id', 'name', ['role.id !=' => null])->asArray();
+```
+
+Methods reading a single field (`findColumnValuesBy()`, `findSingleColumnValueBy()`, the key and value of `findPairsBy()`, the index field of `findIndexedBy()` and the field of `countBy()`) throw a `MultipleFieldSelectionException` for a wildcard such as `'*'` or `'author.**'`.
 
 ### Column Values
 
@@ -318,6 +372,8 @@ $posts = $queries->arrays->findBy(
 )->asArray();
 ```
 
+A sub-query is compared with a single value, so it has to select exactly one column (the entity itself without `select`), otherwise a `LogicException` is thrown.
+
 ### Join Configuration
 
 Control join types for optimal query performance:
@@ -344,6 +400,8 @@ $comments = $queries->arrays->findBy(
     ]
 )->asArray();
 ```
+
+Only `'left'` and `'inner'` are accepted, any other join type throws an `InvalidArgumentException`.
 
 ## Counting and Existence
 
@@ -385,6 +443,12 @@ $deletedOldUsers = $queries->deleteBy(User::class, [
 
 // Delete all entities (use with caution)
 $deletedAll = $queries->deleteBy(User::class);
+
+// DQL DELETE cannot join, so criteria on related entities ('author.name') throw a LogicException.
+// Filter by the association with a sub-query instead:
+$deletedPosts = $queries->deleteBy(Post::class, [
+    'author' => $queries->subQuery(User::class, ['status' => 'banned']),
+]);
 ```
 
 ## PHPStan Integration

@@ -9,6 +9,7 @@ use Shredio\DoctrineQueries\Allocator\FieldAliasAllocator;
 use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
 use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
 use Shredio\DoctrineQueries\Exception\MultipleFieldSelectionException;
+use Shredio\DoctrineQueries\Exception\ToManyAssociationException;
 use Shredio\DoctrineQueries\Select\Field;
 use Shredio\DoctrineQueries\Select\FieldSelectType;
 use Shredio\DoctrineQueries\Select\FieldToSelect;
@@ -54,8 +55,64 @@ final readonly class QueryMetadata
 		return $this->aliasAllocator->getAliases();
 	}
 
+	public function hasToManyJoin(): bool
+	{
+		foreach (array_keys($this->getJoins()) as $path) {
+			if ($this->fieldMetadataFactory->create(new Field($path))->isToManyAssociation()) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Returns the path of the first to-many association the field is reached through, e.g. "hashTags" for "hashTags.hashtag".
+	 *
+	 * @throws FieldNotExistsException
+	 * @throws InvalidAssociationPathException
+	 */
+	public function getFirstToManyPath(Field $field): ?string
+	{
+		$parent = $field->getParent();
+		if ($parent === null) {
+			return null;
+		}
+
+		$pos = 0;
+		do {
+			$pos = strpos($parent, '.', $pos + 1);
+			$path = $pos === false ? $parent : substr($parent, 0, $pos);
+			if ($this->fieldMetadataFactory->create(new Field($path))->isToManyAssociation()) {
+				return $path;
+			}
+		} while ($pos !== false);
+
+		return null;
+	}
+
+	/**
+	 * Returns the alias of the association path and registers the joins it needs.
+	 */
+	public function getAliasForPath(string $path): string
+	{
+		return $this->aliasAllocator->getFor($path);
+	}
+
+	/**
+	 * Returns the DQL path of the field and registers the joins it needs.
+	 *
+	 * @throws FieldNotExistsException
+	 * @throws InvalidAssociationPathException
+	 * @throws ToManyAssociationException
+	 */
 	public function getPathForField(Field $field): string
 	{
+		// Validates the field against the mapping, so a criteria or order key never reaches DQL unchecked.
+		if ($this->fieldMetadataFactory->create($field)->isToManyAssociation()) {
+			throw new ToManyAssociationException($field->selector, $this->metadata->name);
+		}
+
 		$parent = $field->getParent();
 		if ($parent === null) {
 			$alias = $this->rootAlias;

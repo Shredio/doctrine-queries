@@ -12,6 +12,7 @@ final readonly class ParsedCriteria
 
 	/**
 	 * @param ArrayCollection<int, Parameter> $parameters
+	 * @param bool $orIsNull Whether NULL matches too, for a list of values containing NULL
 	 */
 	public function __construct(
 		public Field $field,
@@ -20,17 +21,22 @@ final readonly class ParsedCriteria
 		public ?string $parameterName,
 		public mixed $value,
 		public ?ArrayCollection $parameters,
+		public bool $orIsNull = false,
 	)
 	{
 	}
 
 	public function getExpression(QueryMetadata $queryMetadata): string
 	{
-		if ($this->operand !== null) {
-			return sprintf('%s %s %s', $queryMetadata->getPathForField($this->field), $this->operator, $this->operand);
+		$path = $queryMetadata->getPathForField($this->field);
+
+		if ($this->operand === null) {
+			return sprintf('%s %s', $path, $this->operator);
 		}
 
-		return sprintf('%s %s', $queryMetadata->getPathForField($this->field), $this->operator);
+		$expression = sprintf('%s %s %s', $path, $this->operator, $this->operand);
+
+		return $this->orIsNull ? sprintf('(%s OR %s IS NULL)', $expression, $path) : $expression;
 	}
 
 }

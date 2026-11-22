@@ -3,9 +3,10 @@
 namespace Shredio\DoctrineQueries\Result;
 
 use Doctrine\ORM\Query;
+use Shredio\DoctrineQueries\Exception\InvalidResultKeyException;
 
 /**
- * @template TKey of array-key
+ * @template TKey
  * @template TValue
  */
 final readonly class DatabasePairs
@@ -19,6 +20,7 @@ final readonly class DatabasePairs
 	 */
 	public function __construct(
 		private Query $query,
+		private string $keyField,
 		private bool $sameKeyAsValue = false,
 	)
 	{
@@ -46,10 +48,23 @@ final readonly class DatabasePairs
 
 	/**
 	 * @return array<TKey, TValue>
+	 *
+	 * @throws InvalidResultKeyException When a key is not a string or an integer, e.g. NULL or an object. yield() accepts any key.
 	 */
 	public function asArray(): array
 	{
-		return iterator_to_array($this->yield(), true);
+		$values = [];
+
+		foreach ($this->yield() as $key => $value) {
+			if (!is_string($key) && !is_int($key)) {
+				throw new InvalidResultKeyException($this->keyField, $key);
+			}
+
+			$values[$key] = $value;
+		}
+
+		/** @var array<TKey, TValue> */
+		return $values;
 	}
 
 	/**
@@ -59,7 +74,7 @@ final readonly class DatabasePairs
 	{
 		$key = $this->sameKeyAsValue ? self::ValueColumn : self::KeyColumn;
 
-		foreach ($this->query->toIterable(hydrationMode: $this->query->getHydrationMode()) as $row) {
+		foreach (QueryResultIterator::iterate($this->query) as $row) {
 			yield $row[$key] => $row[self::ValueColumn]; // @phpstan-ignore-line
 		}
 	}

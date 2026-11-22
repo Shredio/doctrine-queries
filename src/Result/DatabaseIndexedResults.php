@@ -3,7 +3,7 @@
 namespace Shredio\DoctrineQueries\Result;
 
 use Doctrine\ORM\Query;
-use LogicException;
+use Shredio\DoctrineQueries\Exception\InvalidResultKeyException;
 
 /**
  * @template TKey
@@ -13,10 +13,16 @@ final readonly class DatabaseIndexedResults
 {
 
 	/**
+	 * Column alias used when the index field has to be added to the selection
+	 */
+	public const string KeyColumn = '_index';
+
+	/**
 	 * @param Query<int, TValue> $query
 	 */
 	public function __construct(
 		private Query $query,
+		private string $keyField,
 		private string $keyColumn,
 		private bool $unsetKeyColumn = false,
 	)
@@ -45,6 +51,8 @@ final readonly class DatabaseIndexedResults
 
 	/**
 	 * @return array<TKey, TValue>
+	 *
+	 * @throws InvalidResultKeyException When a key is not a string or an integer, e.g. NULL or an object. yield() accepts any key.
 	 */
 	public function asArray(): array
 	{
@@ -52,11 +60,7 @@ final readonly class DatabaseIndexedResults
 
 		foreach ($this->yield() as $key => $value) {
 			if (!is_string($key) && !is_int($key)) {
-				throw new LogicException(sprintf(
-					'The key column "%s" must return a string or an integer, got "%s". Tip: use yield() method to avoid this error.',
-					$this->keyColumn,
-					get_debug_type($key),
-				));
+				throw new InvalidResultKeyException($this->keyField, $key);
 			}
 
 			$values[$key] = $value;
@@ -72,7 +76,7 @@ final readonly class DatabaseIndexedResults
 	public function yield(): iterable
 	{
 		/** @var TValue $item */
-		foreach ($this->query->toIterable(hydrationMode: $this->query->getHydrationMode()) as $item) {
+		foreach (QueryResultIterator::iterate($this->query) as $item) {
 			$key = $item[$this->keyColumn];
 			if ($this->unsetKeyColumn) {
 				unset($item[$this->keyColumn]);

@@ -2,7 +2,6 @@
 
 namespace Tests\Entity;
 
-use DateTimeImmutable;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;

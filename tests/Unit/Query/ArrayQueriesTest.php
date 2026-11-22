@@ -3,598 +3,149 @@
 namespace Tests\Unit\Query;
 
 use DateTimeImmutable;
-use Shredio\DoctrineQueries\Pagination\Pagination;
+use Shredio\DoctrineQueries\Exception\InvalidResultKeyException;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
-use Shredio\DoctrineQueries\Query\SimplifiedQueryBuilderFactory;
 use SortDirection;
-use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 use Tests\Context\DoctrineContext;
-use Tests\Doctrine\Symbol;
 use Tests\Entity\Article;
-use Tests\Entity\Enum\ArticleType;
 use Tests\TestCase;
 use Tests\Unit\Helpers;
 
+/**
+ * Hydration specific to ArrayQueries, the shared behaviour is in ArrayAndScalarQueriesTest.
+ */
 final class ArrayQueriesTest extends TestCase
 {
 
-	use ClockSensitiveTrait;
 	use DoctrineContext;
 	use Helpers;
 
-	public function testFindBy(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+	private const string CreatedAt = 'DateTimeImmutable(2021-01-01 00:00:00)';
+	private const string News = 'Tests\Entity\Enum\ArticleType::News';
 
+	public function testFindByHydratesAllRootFields(): void
+	{
 		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class)->asArray();
+
+		$values = $this->assertSingleQuery(fn (): array => $this->getQueries()->findBy(Article::class)->asArray());
 
 		$this->assertSame([
-			[
-				'id' => 1,
-				'title' => 'Sample Article',
-				'content' => 'This is a sample article.',
-			],
-			[
-				'id' => 2,
-				'title' => 'Another Article',
-				'content' => 'This is another article.',
-			],
-			[
-				'id' => 3,
-				'title' => 'Third Article',
-				'content' => 'This is the third article.',
-			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
-
-		$this->assertNotEmpty(array_column($values, 'createdAt'));
-		foreach (array_column($values, 'createdAt') as $value) {
-			$this->assertInstanceOf(DateTimeImmutable::class, $value);
-		}
-
-		$this->assertNotEmpty($columns = array_column($values, 'symbol'));
-		$this->assertInstanceOf(Symbol::class, $columns[0]);
-		$this->assertNull($columns[1]);
-		$this->assertNull($columns[2]);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+			['id' => 1, 'title' => 'Sample Article', 'content' => 'This is a sample article.', 'symbol' => 'Symbol(sym)', 'createdAt' => self::CreatedAt, 'type' => self::News],
+			['id' => 2, 'title' => 'Another Article', 'content' => 'This is another article.', 'symbol' => null, 'createdAt' => self::CreatedAt, 'type' => self::News],
+			['id' => 3, 'title' => 'Third Article', 'content' => 'This is the third article.', 'symbol' => null, 'createdAt' => self::CreatedAt, 'type' => self::News],
+		], self::describeObjects($values));
 	}
 
-	public function testFindByWithJoins(): void
+	public function testFindByWildcardSelectsTheSameAsTheDefaultSelection(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, criteria: ['author.name' => 'Jane Smith'])->asArray();
 
-		$this->assertSame([
-			[
-				'id' => 2,
-				'title' => 'Another Article',
-				'content' => 'This is another article.',
-				'symbol' => null,
-				'type' => ArticleType::News,
-			],
-		], $this->unsetColumns($values, ['createdAt']));
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+		$this->assertSame(
+			self::describeObjects($queries->findBy(Article::class)->asArray()),
+			self::describeObjects($queries->findBy(Article::class, select: ['*'])->asArray()),
+		);
 	}
 
-	public function testFindByWithSelectJoins(): void
+	public function testFindByWithRelations(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, select: ['id', 'author.name'], orderBy: ['id' => SortDirection::Ascending])->asArray();
+
+		$values = $this->assertSingleQuery(fn (): array => $this->getQueries()->findBy(Article::class, select: ['**'])->asArray());
 
 		$this->assertSame([
-			[
-				'id' => 1,
-				'name' => 'John Doe',
-			],
-			[
-				'id' => 2,
-				'name' => 'Jane Smith',
-			],
-			[
-				'id' => 3,
-				'name' => 'John Doe',
-			],
-		], $this->unsetColumns($values, ['createdAt']));
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+			['id' => 1, 'title' => 'Sample Article', 'content' => 'This is a sample article.', 'symbol' => 'Symbol(sym)', 'createdAt' => self::CreatedAt, 'type' => self::News, 'author' => 1],
+			['id' => 2, 'title' => 'Another Article', 'content' => 'This is another article.', 'symbol' => null, 'createdAt' => self::CreatedAt, 'type' => self::News, 'author' => 2],
+			['id' => 3, 'title' => 'Third Article', 'content' => 'This is the third article.', 'symbol' => null, 'createdAt' => self::CreatedAt, 'type' => self::News, 'author' => 1],
+		], self::describeObjects($values));
 	}
 
-	public function testFindByWithOrderByJoins(): void
+	public function testFindByWithRelationPrefix(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, orderBy: ['author.name' => SortDirection::Ascending], select: ['id', 'author.name'])->asArray();
+
+		$values = $this->assertSingleQuery(fn (): array => $this->getQueries()->findBy(Article::class, orderBy: ['id' => SortDirection::Ascending], select: ['*', 'author.**' => 'author_'])->asArray());
 
 		$this->assertSame([
-			[
-				'id' => 2,
-				'name' => 'Jane Smith',
-			],
-			[
-				'id' => 1,
-				'name' => 'John Doe',
-			],
-			[
-				'id' => 3,
-				'name' => 'John Doe',
-			],
-		], $this->unsetColumns($values, ['createdAt']));
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindByWithRelationSelection(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, select: ['**'])->asArray();
-
-		$this->assertSame([
-			[
-				'id' => 1,
-				'title' => 'Sample Article',
-				'content' => 'This is a sample article.',
-				'author' => 1,
-			],
-			[
-				'id' => 2,
-				'title' => 'Another Article',
-				'content' => 'This is another article.',
-				'author' => 2,
-			],
-			[
-				'id' => 3,
-				'title' => 'Third Article',
-				'content' => 'This is the third article.',
-				'author' => 1,
-			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
-
-		$this->assertNotEmpty(array_column($values, 'createdAt'));
-		foreach (array_column($values, 'createdAt') as $value) {
-			$this->assertInstanceOf(DateTimeImmutable::class, $value);
-		}
-
-		$this->assertNotEmpty($columns = array_column($values, 'symbol'));
-		$this->assertInstanceOf(Symbol::class, $columns[0]);
-		$this->assertNull($columns[1]);
-		$this->assertNull($columns[2]);
-
-		$this->assertHasAllFields($values, Article::AllFields);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindByWithRelationWildcardSelection(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, select: ['author.*'])->asArray();
-
-		$this->assertSame([
-			[
-				'id' => 1,
-				'name' => 'John Doe',
-			],
-			[
-				'id' => 1,
-				'name' => 'John Doe',
-			],
-			[
-				'id' => 2,
-				'name' => 'Jane Smith',
-			],
-		], $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testColumnValuesNullableRelations(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: ['author.role' => 'left'])->asArray();
-
-		$this->assertSame([
-			null, null, 1,
-		], $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testColumnValuesNonNullableRelations(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: 'inner')->asArray();
-
-		$this->assertSame([
-			1,
-		], $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testColumnValuesNonNullableRelations2(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: ['author.role' => 'inner'])->asArray();
-
-		$this->assertSame([
-			1,
-		], $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testColumnValuesDistinctNullableRelations(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findColumnValuesBy(Article::class, 'author.role.id', distinct: true, joinConfig: ['author.role' => 'left'])->asArray();
-
-		$this->assertSame([
-			null, 1,
-		], $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindByRelationWithWildcardRelationSelection(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, select: ['author.**'])->asArray();
-
-		$this->assertSame([
-			[
-				'id' => 1,
-				'name' => 'John Doe',
-				'role' => null,
-			],
-			[
-				'id' => 1,
-				'name' => 'John Doe',
-				'role' => null,
-			],
-			[
-				'id' => 2,
-				'name' => 'Jane Smith',
-				'role' => 1,
-			],
-		], $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testRelationPrefixFindByRelationWithWildcardRelationSelection(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, select: ['*', 'author.**' => 'author_'])->asArray();
-
-		$this->assertSame([
-			[
-				'id' => 1,
-				'title' => 'Sample Article',
-				'content' => 'This is a sample article.',
-				'author_id' => 1,
-				'author_name' => 'John Doe',
-				'author_role' => null,
-			],
-			[
-				'id' => 2,
-				'title' => 'Another Article',
-				'content' => 'This is another article.',
-				'author_id' => 2,
-				'author_name' => 'Jane Smith',
-				'author_role' => 1,
-			],
-			[
-				'id' => 3,
-				'title' => 'Third Article',
-				'content' => 'This is the third article.',
-				'author_id' => 1,
-				'author_name' => 'John Doe',
-				'author_role' => null,
-			],
-		], $this->unsetColumns($values, $keys = ['createdAt', 'symbol', 'type']));
-
-		$this->assertValuesHasKeys($keys, $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindIndexedByYield(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = iterator_to_array($queries->findIndexedBy(Article::class, 'title')->yield());
-
-		$this->assertSame([
-			'Sample Article' => [
-				'id' => 1,
-				'title' => 'Sample Article',
-				'content' => 'This is a sample article.',
-			],
-			'Another Article' => [
-				'id' => 2,
-				'title' => 'Another Article',
-				'content' => 'This is another article.',
-			],
-			'Third Article' => [
-				'id' => 3,
-				'title' => 'Third Article',
-				'content' => 'This is the third article.',
-			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindIndexedBy(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findIndexedBy(Article::class, 'title')->asArray();
-
-		$this->assertSame([
-			'Sample Article' => [
-				'id' => 1,
-				'title' => 'Sample Article',
-				'content' => 'This is a sample article.',
-			],
-			'Another Article' => [
-				'id' => 2,
-				'title' => 'Another Article',
-				'content' => 'This is another article.',
-			],
-			'Third Article' => [
-				'id' => 3,
-				'title' => 'Third Article',
-				'content' => 'This is the third article.',
-			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindIndexedByUnsetIndexField(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findIndexedBy(Article::class, 'title', select: ['id'])->asArray();
-
-		$this->assertSame([
-			'Sample Article' => [
-				'id' => 1,
-			],
-			'Another Article' => [
-				'id' => 2,
-			],
-			'Third Article' => [
-				'id' => 3,
-			],
-		], $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+			['id' => 1, 'title' => 'Sample Article', 'content' => 'This is a sample article.', 'symbol' => 'Symbol(sym)', 'createdAt' => self::CreatedAt, 'type' => self::News, 'author_id' => 1, 'author_name' => 'John Doe', 'author_role' => null],
+			['id' => 2, 'title' => 'Another Article', 'content' => 'This is another article.', 'symbol' => null, 'createdAt' => self::CreatedAt, 'type' => self::News, 'author_id' => 2, 'author_name' => 'Jane Smith', 'author_role' => 1],
+			['id' => 3, 'title' => 'Third Article', 'content' => 'This is the third article.', 'symbol' => null, 'createdAt' => self::CreatedAt, 'type' => self::News, 'author_id' => 1, 'author_name' => 'John Doe', 'author_role' => null],
+		], self::describeObjects($values));
 	}
 
 	public function testFindOneBy(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$value = $queries->findOneBy(Article::class, ['id' => 1]);
 
-		$this->assertSame([
-			'id' => 1,
-			'title' => 'Sample Article',
-			'content' => 'This is a sample article.',
-		], $this->unsetColumns([$value], ['createdAt', 'symbol', 'type'])[0]);
+		$value = $this->assertSingleQuery(fn (): ?array => $this->getQueries()->findOneBy(Article::class, ['id' => 1]));
 
-		$this->assertInstanceOf(DateTimeImmutable::class, $value['createdAt']);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+		$this->assertSame(
+			['id' => 1, 'title' => 'Sample Article', 'content' => 'This is a sample article.', 'symbol' => 'Symbol(sym)', 'createdAt' => self::CreatedAt, 'type' => self::News],
+			self::describeObjects($value),
+		);
 	}
 
-	public function testFindOneByReturnsNull(): void
+	public function testFindColumnValuesByHydratesObjects(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
 		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$value = $queries->findOneBy(Article::class, ['id' => 999]);
 
-		$this->assertNull($value);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+		$this->assertSame(['Symbol(sym)', null, null], self::describeObjects($queries->findColumnValuesBy(Article::class, 'symbol')->asArray()));
+		$this->assertSame([self::CreatedAt], self::describeObjects($queries->findColumnValuesBy(Article::class, 'createdAt', distinct: true)->asArray()));
+		$this->assertSame([self::News], self::describeObjects($queries->findColumnValuesBy(Article::class, 'type', distinct: true)->asArray()));
+		$this->assertSame('Symbol(sym)', self::describeObjects($queries->findSingleColumnValueBy(Article::class, 'symbol', ['id' => 1])));
 	}
 
-	public function testFindByWithPagination(): void
+	public function testFindPairsByHydratesObjects(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, pagination: new Pagination(2, 1))->asArray();
 
-		$this->assertCount(2, $values);
-		$this->assertSame([
-			[
-				'id' => 2,
-				'title' => 'Another Article',
-				'content' => 'This is another article.',
-			],
-			[
-				'id' => 3,
-				'title' => 'Third Article',
-				'content' => 'This is the third article.',
-			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+		$this->assertSame(
+			[1 => 'Symbol(sym)', 2 => null, 3 => null],
+			self::describeObjects($this->getQueries()->findPairsBy(Article::class, 'id', 'symbol')->asArray()),
+		);
 	}
 
-	public function testFindByWithPaginationLimitOnly(): void
+	public function testFindIndexedByObjectCannotBeAnArrayKey(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, pagination: new Pagination(2))->asArray();
+		$results = $this->getQueries()->findIndexedBy(Article::class, 'createdAt', select: ['id']);
 
-		$this->assertCount(2, $values);
-		$this->assertSame([
-			[
-				'id' => 1,
-				'title' => 'Sample Article',
-				'content' => 'This is a sample article.',
-			],
-			[
-				'id' => 2,
-				'title' => 'Another Article',
-				'content' => 'This is another article.',
-			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+		$keys = [];
+		foreach ($results->yield() as $key => $row) {
+			$keys[] = $key;
+		}
+
+		$this->assertCount(3, $keys);
+		$this->assertContainsOnlyInstancesOf(DateTimeImmutable::class, $keys, 'yield() can return object keys.');
+
+		$this->expectException(InvalidResultKeyException::class);
+		$this->expectExceptionMessage('The key "createdAt" must be a string or an integer to be used as an array key, got DateTimeImmutable. Use ScalarQueries to get the database value, or iterate over yield().');
+
+		$results->asArray();
 	}
 
-	public function testFindByWithPaginationAndCriteria(): void
+	public function testFindPairsByObjectCannotBeAnArrayKey(): void
 	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
 		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findBy(Article::class, ['id >' => 1], pagination: new Pagination(1))->asArray();
+		$results = $this->getQueries()->findPairsBy(Article::class, 'type', 'id', orderBy: ['id' => SortDirection::Ascending]);
 
-		$this->assertCount(1, $values);
-		$this->assertSame([
-			[
-				'id' => 2,
-				'title' => 'Another Article',
-				'content' => 'This is another article.',
-			],
-		], $this->unsetColumns($values, ['createdAt', 'symbol', 'type']));
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
+		$pairs = [];
+		foreach ($results->yield() as $key => $value) {
+			$pairs[] = [self::describeObjects($key), $value];
+		}
 
-	public function testFindColumnValuesByWithPagination(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
+		$this->assertSame([[self::News, 1], [self::News, 2], [self::News, 3]], $pairs, 'yield() can return object keys.');
 
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findColumnValuesBy(Article::class, 'title', pagination: new Pagination(2))->asArray();
+		$this->expectException(InvalidResultKeyException::class);
+		$this->expectExceptionMessage('The key "type" must be a string or an integer to be used as an array key, got Tests\Entity\Enum\ArticleType. Use ScalarQueries to get the database value, or iterate over yield().');
 
-		$this->assertCount(2, $values);
-		$this->assertSame([
-			'Sample Article',
-			'Another Article',
-		], $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindColumnValuesByWithPaginationOffset(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findColumnValuesBy(Article::class, 'title', pagination: new Pagination(2, 1))->asArray();
-
-		$this->assertCount(2, $values);
-		$this->assertSame([
-			'Another Article',
-			'Third Article',
-		], $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
-	}
-
-	public function testFindColumnValuesByWithPaginationAndCriteria(): void
-	{
-		self::mockTime(new DateTimeImmutable('2021-01-01 00:00:00'));
-
-		$this->persistFixtures();
-		$queries = $this->getQueries();
-		$queryCount = $this->captureQueryCount();
-		$values = $queries->findColumnValuesBy(Article::class, 'title', ['id >' => 1], pagination: new Pagination(1))->asArray();
-
-		$this->assertCount(1, $values);
-		$this->assertSame([
-			'Another Article',
-		], $values);
-		$this->assertSame(1, $queryCount(), 'Expected only one query to be executed.');
+		$results->asArray();
 	}
 
 	private function getQueries(): ArrayQueries
 	{
-		return new ArrayQueries(new SimplifiedQueryBuilderFactory($this->createManagerRegistry()));
-	}
-
-	private function assertHasAllFields(array $values, array $fields): void
-	{
-		sort($fields);
-
-		foreach ($values as $item) {
-			$keys = array_keys($item);
-			sort($keys);
-
-			$this->assertSame($fields, $keys);
-		}
-	}
-
-	/**
-	 * @param list<string> $keys
-	 * @param mixed[] $values
-	 */
-	private function assertValuesHasKeys(array $keys, array $values): void
-	{
-		foreach ($values as $value) {
-			$this->assertIsArray($value);
-			foreach ($keys as $key) {
-				$this->assertArrayHasKey($key, $value);
-			}
-		}
+		return new ArrayQueries($this->createQueryBuilderFactory());
 	}
 
 }

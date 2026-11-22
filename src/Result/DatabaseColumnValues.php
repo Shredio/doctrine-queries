@@ -54,8 +54,8 @@ final readonly class DatabaseColumnValues
 	 */
 	public function yield(): iterable
 	{
-		foreach ($this->query->toIterable(hydrationMode: $this->query->getHydrationMode()) as $row) {
-			yield $row[self::Column]; // @phpstan-ignore offsetAccess.nonOffsetAccessible
+		foreach (QueryResultIterator::iterate($this->query) as $row) {
+			yield $row[self::Column];
 		}
 	}
 
