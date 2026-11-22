@@ -4,11 +4,17 @@ on: [push, pull_request]
 
 jobs:
   test:
-    name: Tests
+    name: Tests (PHP ${{ matrix.version }}, ${{ matrix.dependencies }} dependencies)
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        version: ['8.3','8.4']
+        version: ['8.3', '8.4', '8.5']
+        dependencies: ['highest']
+        include:
+          # The lowest versions allowed by composer.json, on the lowest supported PHP.
+          - version: '8.3'
+            dependencies: 'lowest'
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -16,5 +22,53 @@ jobs:
           php-version: ${{ matrix.version }}
           coverage: none
 
-      - run: composer install --no-progress --prefer-dist
+      - run: composer update --no-progress --prefer-dist ${{ matrix.dependencies == 'lowest' && '--prefer-lowest --prefer-stable' || '' }}
       - run: composer test
+
+      # Only the inferred types are checked with stringified fetches, the other tests expect native types.
+      - run: vendor/bin/phpunit tests/PhpStan/RuntimeTypes
+        env:
+          DATABASE_URL: 'pdo-sqlite:///:memory:?driverOptions[17]=1'
+
+  mysql:
+    name: Tests (MySQL 9.7, ${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: pdo_mysql
+            database-url: 'pdo-mysql://root:root@127.0.0.1:3306/doctrine_queries'
+            tests: tests
+          - name: mysqli
+            database-url: 'mysqli://root:root@127.0.0.1:3306/doctrine_queries'
+            tests: tests
+          # driverOptions[17] is PDO::ATTR_STRINGIFY_FETCHES, the other tests expect native types.
+          - name: pdo_mysql with stringified fetches
+            database-url: 'pdo-mysql://root:root@127.0.0.1:3306/doctrine_queries?driverOptions[17]=1'
+            tests: tests/PhpStan/RuntimeTypes
+    services:
+      mysql:
+        image: mysql:9.7
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: doctrine_queries
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --password=root"
+          --health-interval=2s
+          --health-timeout=5s
+          --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mysqli, pdo_mysql
+          coverage: none
+
+      - run: composer update --no-progress --prefer-dist
+      - run: vendor/bin/phpunit ${{ matrix.tests }}
+        env:
+          DATABASE_URL: ${{ matrix.database-url }}
