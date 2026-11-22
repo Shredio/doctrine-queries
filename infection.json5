@@ -1,0 +1,22 @@
+{
+	"$schema": "vendor/infection/infection/resources/schema.json",
+	// Pure logic classes, where a surviving mutant usually means a missing assertion.
+	"source": {
+		"directories": [
+			"src/Criteria",
+			"src/Join",
+			"src/Result",
+			"src/Select"
+		]
+	},
+	"logs": {
+		"text": "build/infection/infection.log",
+		"summary": "build/infection/summary.log"
+	},
+	// With RuntimeTypesTest in the run, Infection does not load the mutated classes (the covered code MSI falls from
+	// 93 % to 18 % on CriteriaParser), and the test checks the PHPStan extension, which is not mutated anyway.
+	"testFrameworkOptions": "--exclude-group=runtime-types",
+	"mutators": {
+		"@default": true
+	}
+}
