@@ -1,0 +1,19 @@
+# MySQL for running the tests against a real server, the default suite uses in-memory SQLite:
+#   docker compose up -d --wait
+#   DATABASE_URL="pdo-mysql://root:root@127.0.0.1:3307/doctrine_queries" composer test
+#   DATABASE_URL="mysqli://root:root@127.0.0.1:3307/doctrine_queries" composer test
+services:
+  mysql:
+    image: mysql:9.7
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: doctrine_queries
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3307}:3306"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--host=127.0.0.1", "--password=root"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

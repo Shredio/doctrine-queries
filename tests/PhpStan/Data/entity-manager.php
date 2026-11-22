@@ -2,4 +2,5 @@
 
 use Tests\Factory\EntityManagerFactory;
 
-return EntityManagerFactory::create();
+// The expected types in the PHPStan tests are the ones of SQLite, whatever database the suite runs against.
+return EntityManagerFactory::createInMemory();

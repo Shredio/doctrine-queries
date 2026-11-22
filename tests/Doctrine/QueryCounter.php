@@ -2,13 +2,14 @@
 
 namespace Tests\Doctrine;
 
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Proxy\InternalProxy;
-use Doctrine\Persistence\AbstractManagerRegistry;
-use Psr\Log\LoggerInterface;
-use Stringable;
+use Psr\Log\AbstractLogger;
 
-final class QueryCounter implements LoggerInterface
+/**
+ * Collects the SQL queries logged by the DBAL logging middleware.
+ *
+ * Extends AbstractLogger and leaves log() without parameter types, so it is compatible with psr/log 1, 2 and 3.
+ */
+final class QueryCounter extends AbstractLogger
 {
 
 	private int $index = 0;
@@ -37,54 +38,18 @@ final class QueryCounter implements LoggerInterface
 		};
 	}
 
-	public function log($level, Stringable|string $message, array $context = []): void
+	/**
+	 * @param mixed $level
+	 * @param string|\Stringable $message
+	 * @param array<mixed> $context
+	 */
+	public function log($level, $message, array $context = []): void
 	{
 		if (isset($context['sql']) && is_string($context['sql'])) {
 			foreach ($this->memory as &$queries) {
 				$queries[] = $context['sql'];
 			}
 		}
-	}
-
-	public function emergency(Stringable|string $message, array $context = []): void
-	{
-		$this->log(__FUNCTION__, $message, $context);
-	}
-
-	public function alert(Stringable|string $message, array $context = []): void
-	{
-		$this->log(__FUNCTION__, $message, $context);
-
-	}
-
-	public function critical(Stringable|string $message, array $context = []): void
-	{
-		$this->log(__FUNCTION__, $message, $context);
-	}
-
-	public function error(Stringable|string $message, array $context = []): void
-	{
-		$this->log(__FUNCTION__, $message, $context);
-	}
-
-	public function warning(Stringable|string $message, array $context = []): void
-	{
-		$this->log(__FUNCTION__, $message, $context);
-	}
-
-	public function notice(Stringable|string $message, array $context = []): void
-	{
-		$this->log(__FUNCTION__, $message, $context);
-	}
-
-	public function info(Stringable|string $message, array $context = []): void
-	{
-		$this->log(__FUNCTION__, $message, $context);
-	}
-
-	public function debug(Stringable|string $message, array $context = []): void
-	{
-		$this->log(__FUNCTION__, $message, $context);
 	}
 
 }
