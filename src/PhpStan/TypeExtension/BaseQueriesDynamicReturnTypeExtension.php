@@ -13,6 +13,7 @@ use PHPStan\Type\StringType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
 use PHPStan\Type\UnionType;
+use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineService;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory;
 use Shredio\DoctrineQueries\Result\DatabaseColumnValues;
@@ -67,13 +68,17 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 
 		$methodName = $methodReflection->getName();
 
-		$context = new DynamicReturnTypeContext(
-			$args,
-			$scope,
-			$entity,
-			$this->getQueryType(),
-			$this->service,
-		);
+		try {
+			$context = new DynamicReturnTypeContext(
+				$args,
+				$scope,
+				$entity,
+				$this->getQueryType(),
+				$this->service,
+			);
+		} catch (NoClassMetadataException) {
+			return null; // not an entity, reported by DoctrineQueriesRule
+		}
 
 		if ($methodName === 'findBy') {
 			return $this->fromFindBy($context);
@@ -120,7 +125,7 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 	{
 		$criteria = $context->getCriteria(2);
 		$selectType = $context->getSelectType(4, $criteria, 5);
-		$indexType = $context->tryToCreateTypeFromConstantType(1, $criteria);
+		$indexType = self::toKeyType($context->tryToCreateTypeFromConstantType(1, $criteria, 5));
 
 		return new GenericObjectType(DatabaseIndexedResults::class, [
 			$indexType,
@@ -131,12 +136,12 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 	private function fromFindPairsBy(DynamicReturnTypeContext $context): GenericObjectType
 	{
 		$criteria = $context->getCriteria(3);
-		$keyType = $context->tryToCreateTypeFromConstantType(1, $criteria);
-		$valueType = $context->tryToCreateTypeFromConstantType(2, $criteria);
+		$keyType = $context->tryToCreateTypeFromConstantType(1, $criteria, 5);
+		$valueType = $context->tryToCreateTypeFromConstantType(2, $criteria, 5);
 
-		if ($keyType instanceof MixedType) {
-			$keyType = new UnionType([new StringType(), new IntegerType()]);
-		}
+		$keyType = $keyType instanceof MixedType
+			? new UnionType([new StringType(), new IntegerType()])
+			: self::toKeyType($keyType);
 
 		return new GenericObjectType(DatabasePairs::class, [
 			$keyType,
@@ -147,7 +152,7 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 	private function fromFindColumnValuesBy(DynamicReturnTypeContext $context): GenericObjectType
 	{
 		$criteria = $context->getCriteria(2);
-		$valueType = $context->tryToCreateTypeFromConstantType(1, $criteria);
+		$valueType = $context->tryToCreateTypeFromConstantType(1, $criteria, 6);
 
 		return new GenericObjectType(DatabaseColumnValues::class, [
 			$valueType,
@@ -157,9 +162,20 @@ abstract readonly class BaseQueriesDynamicReturnTypeExtension implements Dynamic
 	private function fromFindSingleColumnValueBy(DynamicReturnTypeContext $context): Type
 	{
 		$criteria = $context->getCriteria(2);
-		$valueType = $context->tryToCreateTypeFromConstantType(1, $criteria);
+		$valueType = $context->tryToCreateTypeFromConstantType(1, $criteria, 4);
 
 		return TypeCombinator::addNull($valueType); // always nullable
+	}
+
+	/**
+	 * The type of the keys asArray() returns. NULL is removed because asArray() throws on it, ResultArrayKeyRule
+	 * reports such calls together with the objects that are kept here, yield() returns them as keys.
+	 */
+	private static function toKeyType(Type $type): Type
+	{
+		$type = TypeCombinator::removeNull($type);
+
+		return $type->isObject()->no() ? $type->toArrayKey() : $type; // e.g. '7' becomes 7 as an array key
 	}
 
 }

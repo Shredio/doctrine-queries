@@ -63,4 +63,19 @@ final readonly class DoctrineQueriesDynamicReturnTypeExtensionCases
 		assertType('Shredio\DoctrineQueries\Result\DatabaseExistenceResults<array{id: int}>', $queries->existsManyBy(Article::class, $values));
 	}
 
+	public function testNotAnEntity(DoctrineQueries $queries): void
+	{
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseExistenceResults<array<string, bool|float|int|string|null>>', $queries->existsManyBy(\stdClass::class, [['id' => 1]]));
+	}
+
+	public function testToManyAssociation(DoctrineQueries $queries): void
+	{
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseExistenceResults<*NEVER*>', $queries->existsManyBy(Article::class, [['hashTags' => 1]]));
+	}
+
+	public function testNullableField(DoctrineQueries $queries): void
+	{
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseExistenceResults<array{id: int, symbol: string|null}>', $queries->existsManyBy(Article::class, [['id' => 1, 'symbol' => null]]));
+	}
+
 }

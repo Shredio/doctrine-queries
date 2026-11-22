@@ -462,8 +462,32 @@ includes:
 
 This provides:
 - Type inference for query results
-- Validation of entity classes and field names
-- Detection of invalid criteria and operators
+- Validation of entity classes and field names in criteria, ordering, selection, join configuration and preloading
+- Detection of unsupported criteria operators and of criteria on related entities in `deleteBy()`
+- Detection of options passed as positional arguments (`orderBy`, `select`, `pagination`, `joinConfig`)
+- Detection of wildcards passed where a single field is expected, e.g. `findColumnValuesBy(User::class, '*')`
+- Detection of sub-queries selecting more than one column
+- Detection of `findPairsBy()->asArray()` and `findIndexedBy()->asArray()` whose key can be `NULL` or is not an integer or a string, see [Key-Value Pairs](#key-value-pairs). Only calls chained directly on the finder are checked, a result stored in a variable first is not followed.
+
+Doctrine does not convert scalar results (`$queries->scalars`, and `IDENTITY()` of associations in `$queries->arrays`), so their PHP types depend on the database driver. The extension infers them for the driver of the connection returned by phpstan-doctrine's `objectManagerLoader`, including `PDO::ATTR_STRINGIFY_FETCHES`. For example a `decimal` column is `float|int` on `pdo_sqlite` but `numeric-string` on `pdo_mysql` and `mysqli`, so configure the loader with the same driver and options as the application. Criteria narrow the inferred type only when the database returns the value in the form it was compared in, e.g. `['name' => 'John']` does not narrow `name` to `'John'` on MySQL, whose default collations compare case-insensitively.
+
+## Testing
+
+The tests run against in-memory SQLite. To run them against MySQL 9.7, start the server from `compose.yaml` and point `DATABASE_URL` to it:
+
+```bash
+docker compose up -d --wait
+DATABASE_URL="pdo-mysql://root:root@127.0.0.1:3307/doctrine_queries" composer test
+DATABASE_URL="mysqli://root:root@127.0.0.1:3307/doctrine_queries" composer test
+```
+
+`tests/PhpStan/RuntimeTypes` compares the types inferred by the PHPStan extension with the values the driver really returns, it is worth running for any driver configuration, e.g. with stringified fetches (`driverOptions[17]` is `PDO::ATTR_STRINGIFY_FETCHES`):
+
+```bash
+DATABASE_URL="pdo-mysql://root:root@127.0.0.1:3307/doctrine_queries?driverOptions[17]=1" vendor/bin/phpunit tests/PhpStan/RuntimeTypes
+```
+
+Mutation testing of the query building and result classes: `composer infection`.
 
 ## Performance Tips
 

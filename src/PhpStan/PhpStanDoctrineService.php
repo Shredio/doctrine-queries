@@ -2,14 +2,22 @@
 
 namespace Shredio\DoctrineQueries\PhpStan;
 
-use Doctrine\ORM\Mapping\FieldMapping;
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Types\GuidType;
+use Doctrine\DBAL\Types\StringType;
+use Doctrine\DBAL\Types\TextType;
+use Doctrine\DBAL\Types\Type as DbalType;
+use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
+use PDO;
+use PHPStan\Doctrine\Driver\DriverDetector;
 use PHPStan\Type\ArrayType;
-use PHPStan\Type\Constant\ConstantArrayType;
 use PHPStan\Type\Constant\ConstantIntegerType;
 use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\Doctrine\DescriptorNotRegisteredException;
 use PHPStan\Type\Doctrine\DescriptorRegistry;
+use PHPStan\Type\Doctrine\Descriptors\DoctrineTypeDescriptor;
+use PHPStan\Type\Doctrine\Descriptors\DoctrineTypeDriverAwareDescriptor;
 use PHPStan\Type\Doctrine\ObjectMetadataResolver;
 use PHPStan\Type\MixedType;
 use PHPStan\Type\NeverType;
@@ -17,7 +25,6 @@ use PHPStan\Type\ObjectType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
 use PHPStan\Type\TypeUtils;
-use PHPStan\Type\UnionType;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
 use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
 use Shredio\DoctrineQueries\Metadata\FieldType;
@@ -28,14 +35,30 @@ use Shredio\DoctrineQueries\Select\QueryType;
 /**
  * @api
  */
-final readonly class PhpStanDoctrineService
+final class PhpStanDoctrineService
 {
 
-	private PhpstanClassMetadataFactory $classMetadataFactory;
+	/**
+	 * Drivers whose "=" compares strings exactly, MySQL compares case-insensitively with its default collations.
+	 * The names are the ones DriverDetector returns.
+	 */
+	private const array ExactStringComparisonDrivers = ['pdo_sqlite', 'sqlite3', 'pdo_pgsql', 'pgsql'];
+
+	private const array PdoDrivers = ['pdo_mysql', 'pdo_pgsql', 'pdo_sqlite'];
+
+	private readonly PhpstanClassMetadataFactory $classMetadataFactory;
+
+	/** The connection of the objectManagerLoader tells which driver fetches the scalar results. */
+	private ?Connection $connection = null;
+
+	private bool $connectionResolved = false;
 
 	public function __construct(
-		ObjectMetadataResolver $objectMetadataResolver,
-		private DescriptorRegistry $descriptorRegistry,
+		private readonly ObjectMetadataResolver $objectMetadataResolver,
+		private readonly DescriptorRegistry $descriptorRegistry,
+		// DriverDetector is not covered by the BC promise of phpstan-doctrine, but its driver-aware descriptors use it too,
+		// so the detected driver always agrees with the types they return.
+		private readonly DriverDetector $driverDetector = new DriverDetector(), // @phpstan-ignore phpstanApi.constructor
 	)
 	{
 		$this->classMetadataFactory = new PhpstanClassMetadataFactory($objectMetadataResolver);
@@ -51,9 +74,30 @@ final readonly class PhpStanDoctrineService
 	}
 
 	/**
-	 * @param CriteriaItemType[] $criteriaCollection
+	 * Whether a row matched by "field = 'value'" returns exactly 'value', so the type can be narrowed to the string.
+	 * It is not the case for a case-insensitive collation, or for columns the database converts, e.g. dates or GUIDs.
 	 */
-	public function determineTypeByFieldCriteria(Type $type, string $fieldName, array $criteriaCollection): Type
+	public function comparesStringsExactly(FieldType $fieldType): bool
+	{
+		$connection = $this->getConnection();
+		if ($connection === null || !in_array($this->driverDetector->detect($connection), self::ExactStringComparisonDrivers, true)) { // @phpstan-ignore phpstanApi.method
+			return false;
+		}
+
+		if (!DbalType::hasType($fieldType->type)) {
+			return false;
+		}
+
+		$dbalType = DbalType::getType($fieldType->type);
+
+		return ($dbalType instanceof StringType || $dbalType instanceof TextType) && !$dbalType instanceof GuidType;
+	}
+
+	/**
+	 * @param CriteriaItemType[] $criteriaCollection
+	 * @param bool $stringValuesAreExact Whether matched rows contain the string criteria values exactly, see comparesStringsExactly()
+	 */
+	public function determineTypeByFieldCriteria(Type $type, string $fieldName, array $criteriaCollection, bool $stringValuesAreExact = true): Type
 	{
 		foreach ($criteriaCollection as $criteria) {
 			if ($criteria->field->selector !== $fieldName) {
@@ -64,13 +108,12 @@ final readonly class PhpStanDoctrineService
 
 			if ($criteria->operator === '=') {
 				if ($type->isObject()->no() && $type->isArray()->no()) { // intersect '2020-01-01' with DateTime leads to *NEVER* type
-					$typeToCombine = $this->getSimpleTypeForCombinator($criteriaType);
+					$valueTypes = $this->getSimpleTypesForCombinator($criteriaType);
+					$narrowedType = $valueTypes === null ? null : $this->narrowToValues($type, $valueTypes, $stringValuesAreExact);
 
-					if ($typeToCombine === null && $this->canBeNull($type) && !$this->containsNull($criteriaType)) {
-						return TypeCombinator::removeNull($type); // if we can be null, but criteria does not allow null, we can remove it
+					if ($narrowedType !== null) {
+						return $narrowedType;
 					}
-
-					return $typeToCombine === null ? $type : TypeCombinator::intersect($type, $typeToCombine);
 				}
 
 				if ($this->canBeNull($type) && !$this->containsNull($criteriaType)) {
@@ -81,9 +124,9 @@ final readonly class PhpStanDoctrineService
 			}
 
 			if ($criteria->operator === '!=') {
-				$typeToCombine = $this->getSimpleTypeForCombinator($criteriaType);
+				$valueTypes = $this->getSimpleTypesForCombinator($criteriaType);
 
-				return $typeToCombine === null ? $type : TypeCombinator::remove($type, $typeToCombine);
+				return $valueTypes === null ? $type : TypeCombinator::remove($type, TypeCombinator::union(...$valueTypes));
 			}
 		}
 
@@ -110,10 +153,64 @@ final readonly class PhpStanDoctrineService
 		return $type->isNull()->yes() || $type->isNull()->maybe();
 	}
 
-	private function getSimpleTypeForCombinator(Type $type): ?Type
+	/**
+	 * Narrows the type to the values the criteria compares with. Returns null when a value can be returned
+	 * in another form than it was compared in, e.g. the numeric string '1' for an integer column,
+	 * false for a boolean column that the driver returns as 0, or 'A' for a case-insensitive column that contains 'a'.
+	 *
+	 * @param list<Type> $valueTypes
+	 */
+	private function narrowToValues(Type $type, array $valueTypes, bool $stringValuesAreExact): ?Type
+	{
+		$narrowedTypes = [];
+		$typeWithoutNull = TypeCombinator::removeNull($type);
+
+		foreach ($valueTypes as $valueType) {
+			$members = $valueType->getConstantScalarTypes();
+
+			foreach ($members !== [] ? $members : [$valueType] as $member) {
+				if (!$member->isNull()->yes() && !$this->isReturnedAsCompared($typeWithoutNull, $member, $stringValuesAreExact)) {
+					return null;
+				}
+
+				$narrowedType = TypeCombinator::intersect($type, $member);
+
+				if ($narrowedType instanceof NeverType) {
+					if ($member->isNull()->yes()) {
+						continue; // NULL never matches a non-nullable column
+					}
+
+					return null;
+				}
+
+				$narrowedTypes[] = $narrowedType;
+			}
+		}
+
+		return $narrowedTypes === [] ? null : TypeCombinator::union(...$narrowedTypes);
+	}
+
+	/**
+	 * A matched value is returned in the form it was compared in only when both are of the same kind.
+	 */
+	private function isReturnedAsCompared(Type $type, Type $value, bool $stringValuesAreExact): bool
+	{
+		return match (true) {
+			$value->isInteger()->yes() => $type->isInteger()->yes(),
+			$value->isFloat()->yes() => $type->isFloat()->yes(),
+			$value->isBoolean()->yes() => $type->isBoolean()->yes(),
+			$value->isString()->yes() => $stringValuesAreExact && $type->isString()->yes(),
+			default => false,
+		};
+	}
+
+	/**
+	 * @return list<Type>|null
+	 */
+	private function getSimpleTypesForCombinator(Type $type): ?array
 	{
 		if ($type->isScalar()->yes() || $type->isNull()->yes()) {
-			return $type;
+			return [$type];
 		}
 
 		if ($type->isConstantArray()->yes()) {
@@ -129,7 +226,7 @@ final readonly class PhpStanDoctrineService
 				}
 			}
 
-			return new UnionType($types);
+			return $types;
 		}
 
 		return null;
@@ -144,7 +241,8 @@ final readonly class PhpStanDoctrineService
 			foreach ($keyType->getConstantStrings() as $constantString) {
 				[$field, $operator] = CriteriaParser::parseSingleField($constantString->getValue());
 
-				yield new CriteriaItemType($field, $operator, $valueType);
+				// Unsupported operators are kept as they are, DoctrineQueriesRule reports them.
+				yield new CriteriaItemType($field, CriteriaParser::normalizeOperator($operator) ?? $operator, $valueType);
 			}
 		}
 	}
@@ -295,7 +393,7 @@ final readonly class PhpStanDoctrineService
 			$descriptor = $this->descriptorRegistry->get($typeName); // @phpstan-ignore phpstanApi.method
 
 			if ($returnScalarType) {
-				$type = $descriptor->getDatabaseInternalType();
+				$type = $this->resolveDatabaseInternalType($descriptor);
 			} else {
 				$type = $descriptor->getWritableToPropertyType();
 			}
@@ -326,6 +424,54 @@ final readonly class PhpStanDoctrineService
 		}
 
 		return $type;
+	}
+
+	/**
+	 * Scalar results are not converted by Doctrine, so their type is the one the driver fetches.
+	 *
+	 * @see https://github.com/janedbal/php-database-drivers-fetch-test
+	 */
+	private function resolveDatabaseInternalType(DoctrineTypeDescriptor $descriptor): Type
+	{
+		$connection = $this->getConnection();
+		if ($connection === null) {
+			return $descriptor->getDatabaseInternalType();
+		}
+
+		$type = $descriptor instanceof DoctrineTypeDriverAwareDescriptor
+			? $descriptor->getDatabaseInternalTypeForDriver($connection)
+			: $descriptor->getDatabaseInternalType();
+
+		if (!$this->isFetchStringified($connection)) {
+			return $type;
+		}
+
+		$stringifiedType = TypeCombinator::removeNull($type)->toString();
+
+		return TypeCombinator::containsNull($type) ? TypeCombinator::addNull($stringifiedType) : $stringifiedType;
+	}
+
+	/**
+	 * PDO returns every value as a string with PDO::ATTR_STRINGIFY_FETCHES, other drivers fetch native types on PHP 8.1+.
+	 */
+	private function isFetchStringified(Connection $connection): bool
+	{
+		if (!in_array($this->driverDetector->detect($connection), self::PdoDrivers, true)) { // @phpstan-ignore phpstanApi.method
+			return false;
+		}
+
+		return (bool) ($this->driverDetector->detectDriverOptions($connection)[PDO::ATTR_STRINGIFY_FETCHES] ?? false); // @phpstan-ignore phpstanApi.method
+	}
+
+	private function getConnection(): ?Connection
+	{
+		if (!$this->connectionResolved) {
+			$this->connectionResolved = true;
+			$objectManager = $this->objectMetadataResolver->getObjectManager();
+			$this->connection = $objectManager instanceof EntityManagerInterface ? $objectManager->getConnection() : null;
+		}
+
+		return $this->connection;
 	}
 
 	/**

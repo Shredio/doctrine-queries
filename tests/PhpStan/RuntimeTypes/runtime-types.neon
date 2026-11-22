@@ -1,0 +1,6 @@
+includes:
+	- ../phpstan-return-types.neon
+
+parameters:
+	doctrine:
+		objectManagerLoader: entity-manager.php

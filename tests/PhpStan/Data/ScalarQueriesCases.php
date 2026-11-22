@@ -3,6 +3,7 @@
 namespace Tests\PhpStan\Data;
 
 use Shredio\DoctrineQueries\Query\ScalarQueries;
+use SortDirection;
 use Tests\Entity\Article;
 use Tests\Entity\ArticleNullableAuthor;
 use Tests\Entity\FavouritePrompt;
@@ -113,6 +114,7 @@ class ScalarQueriesCases
 	public function testFindSingleColumnValueBy(ScalarQueries $queries): void
 	{
 		assertType('string|null', $queries->findSingleColumnValueBy(Article::class, 'title', []));
+		assertType('string|null', $queries->findSingleColumnValueBy(Article::class, 'author.role.name', [], orderBy: ['id' => SortDirection::Descending], joinConfig: 'inner'));
 		assertType('int|null', $queries->findSingleColumnValueBy(Article::class, 'id', []));
 		assertType('string|null', $queries->findSingleColumnValueBy(Article::class, 'symbol', ['symbol !=' => null]));
 	}
@@ -193,6 +195,75 @@ class ScalarQueriesCases
 	{
 		assertType('list<int>', $queries->findColumnValuesBy(FavouritePrompt::class, 'prompt', ['account' => 1])->asArray());
 		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseColumnValues<int>', $queries->findColumnValuesBy(FavouritePrompt::class, 'prompt', ['account' => 1]));
+	}
+
+	public function testCriteriaNarrowOnlyTheFieldWithTheSamePath(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: 1, authorId: int}>', $queries->findBy(Article::class, ['id' => 1], select: ['id', 'author.id' => 'authorId'])->asArray());
+		assertType('list<array{id: int, authorId: 5}>', $queries->findBy(Article::class, ['author.id' => 5], select: ['id', 'author.id' => 'authorId'])->asArray());
+		assertType('list<array{id: 1, author_id: int, author_name: string}>', $queries->findBy(Article::class, ['id' => 1], select: ['id', 'author.*' => 'author_'])->asArray());
+	}
+
+	public function testCriteriaValuesIncompatibleWithTheFieldType(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: int}>', $queries->findBy(Article::class, ['id' => '2'], select: ['id'])->asArray());
+		assertType('list<array{id: int}>', $queries->findBy(Article::class, ['id' => [1, '2']], select: ['id'])->asArray());
+		assertType('list<array{id: 1|2}>', $queries->findBy(Article::class, ['id' => [1, 2]], select: ['id'])->asArray());
+		assertType('list<array{id: int}>', $queries->findBy(Article::class, ['id' => []], select: ['id'])->asArray());
+	}
+
+	public function testCriteriaOperatorsAreNormalized(ScalarQueries $queries): void
+	{
+		assertType('list<array{symbol: string}>', $queries->findBy(Article::class, ['symbol <>' => null], select: ['symbol'])->asArray());
+		assertType("list<array{title: 'Foo'}>", $queries->findBy(Article::class, ['title  =' => 'Foo'], select: ['title'])->asArray());
+		assertType('list<array{id: int}>', $queries->findBy(Article::class, ['id BETWEEN' => 1], select: ['id'])->asArray());
+	}
+
+	public function testFindIndexedByAssociation(ScalarQueries $queries): void
+	{
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseIndexedResults<int, array{title: string}>', $queries->findIndexedBy(Article::class, 'author', select: ['title']));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseIndexedResults<string, array{id: int}>', $queries->findIndexedBy(Article::class, 'author.name', select: ['id']));
+	}
+
+	/**
+	 * Invalid arguments are reported by DoctrineQueriesRule, the type extension must not crash on them.
+	 */
+	public function testInvalidArgumentsDoNotBreakTheAnalysis(ScalarQueries $queries): void
+	{
+		assertType('list<array{id: int}>', $queries->findBy(Article::class, select: ['id', 'unknown', 'author.rol.name', 'title.length'])->asArray());
+		assertType('mixed', $queries->findSingleColumnValueBy(Article::class, 'unknown', []));
+		assertType('list', $queries->findColumnValuesBy(Article::class, 'author.rol.name')->asArray());
+		assertType('list', $queries->findColumnValuesBy(Article::class, 'hashTags')->asArray());
+		assertType('array<int|string, mixed>', $queries->findPairsBy(Article::class, 'unknownKey', 'unknownValue')->asArray());
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseResults<array<string, bool|float|int|string|null>>', $queries->findBy(\stdClass::class));
+	}
+
+
+	/**
+	 * A field of a left joined relation is NULL in the rows without the relation, in every finder.
+	 */
+	public function testLeftJoinedFieldsAreNullable(ScalarQueries $queries): void
+	{
+		assertType('list<int|null>', $queries->findColumnValuesBy(Article::class, 'author.role.id')->asArray());
+		assertType('list<int>', $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: 'inner')->asArray());
+		assertType('list<int>', $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: ['author.role' => 'inner'])->asArray());
+		assertType('list<int>', $queries->findColumnValuesBy(Article::class, 'author.role.id', ['author.role.id !=' => null])->asArray());
+		assertType('list<string>', $queries->findColumnValuesBy(Article::class, 'author.name')->asArray());
+		assertType('list<string|null>', $queries->findColumnValuesBy(ArticleNullableAuthor::class, 'author.name')->asArray());
+		assertType('array<int, string|null>', $queries->findPairsBy(Article::class, 'id', 'author.role.name')->asArray());
+		assertType('array<int, string>', $queries->findPairsBy(Article::class, 'id', 'author.role.name', joinConfig: 'inner')->asArray());
+		assertType('string|null', $queries->findSingleColumnValueBy(Article::class, 'author.role.name', []));
+	}
+
+	/**
+	 * asArray() throws on a NULL key, which ResultArrayKeyRule reports, so the keys never contain it.
+	 */
+	public function testKeysAreNeverNull(ScalarQueries $queries): void
+	{
+		assertType('array<string, int>', $queries->findPairsBy(Article::class, 'symbol', 'id')->asArray());
+		assertType('array<int, int>', $queries->findPairsBy(Article::class, 'author.role.id', 'id')->asArray());
+		assertType('array<string, array{id: int}>', $queries->findIndexedBy(Article::class, 'symbol', select: ['id'])->asArray());
+		assertType('array<int, array{id: int}>', $queries->findIndexedBy(Article::class, 'author.role.id', select: ['id'])->asArray());
 	}
 
 }

@@ -3,8 +3,8 @@
 namespace Tests\PhpStan\Data;
 
 use Shredio\DoctrineQueries\Query\ArrayQueries;
+use SortDirection;
 use Tests\Entity\Article;
-use int;
 use Tests\Entity\ArticleNullableAuthor;
 use Tests\Entity\FavouritePrompt;
 use function PHPStan\Testing\assertType;
@@ -115,6 +115,7 @@ class ArrayQueriesCases
 	public function testFindSingleColumnValueBy(ArrayQueries $queries): void
 	{
 		assertType('string|null', $queries->findSingleColumnValueBy(Article::class, 'title', []));
+		assertType('string|null', $queries->findSingleColumnValueBy(Article::class, 'author.role.name', [], orderBy: ['id' => SortDirection::Descending], joinConfig: 'inner'));
 		assertType('int|null', $queries->findSingleColumnValueBy(Article::class, 'id', []));
 		assertType('Tests\Doctrine\Symbol|null', $queries->findSingleColumnValueBy(Article::class, 'symbol', ['symbol !=' => null]));
 		assertType('int|null', $queries->findSingleColumnValueBy(Article::class, 'author', []));
@@ -175,6 +176,34 @@ class ArrayQueriesCases
 	{
 		assertType('list<int>', $queries->findColumnValuesBy(FavouritePrompt::class, 'prompt', ['account' => 1])->asArray());
 		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseColumnValues<int>', $queries->findColumnValuesBy(FavouritePrompt::class, 'prompt', ['account' => 1]));
+	}
+
+	public function testFindPairsBySameKeyAndValue(ArrayQueries $queries): void
+	{
+		assertType('array<string, string>', $queries->findPairsBy(Article::class, 'title', 'title')->asArray());
+	}
+
+	public function testCriteriaNarrowOnlyTheFieldWithTheSamePath(ArrayQueries $queries): void
+	{
+		assertType('list<array{id: 1, authorId: int}>', $queries->findBy(Article::class, ['id' => 1], select: ['id', 'author.id' => 'authorId'])->asArray());
+	}
+
+
+	public function testLeftJoinedFieldsAreNullable(ArrayQueries $queries): void
+	{
+		assertType('list<int|null>', $queries->findColumnValuesBy(Article::class, 'author.role.id')->asArray());
+		assertType('list<int>', $queries->findColumnValuesBy(Article::class, 'author.role.id', joinConfig: 'inner')->asArray());
+		assertType('array<int, string|null>', $queries->findPairsBy(Article::class, 'id', 'author.role.name')->asArray());
+	}
+
+	/**
+	 * yield() returns the hydrated objects as keys, asArray() throws on them, which ResultArrayKeyRule reports.
+	 */
+	public function testObjectKeysAreKeptForYield(ArrayQueries $queries): void
+	{
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<Tests\\Entity\\Enum\\ArticleType, int>', $queries->findPairsBy(Article::class, 'type', 'id'));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<Tests\\Doctrine\\Symbol, int>', $queries->findPairsBy(Article::class, 'symbol', 'id'));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseIndexedResults<DateTimeImmutable, array{id: int}>', $queries->findIndexedBy(Article::class, 'createdAt', select: ['id']));
 	}
 
 }

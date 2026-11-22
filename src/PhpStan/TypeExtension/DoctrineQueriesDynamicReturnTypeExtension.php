@@ -14,6 +14,8 @@ use PHPStan\Type\Type;
 use Shredio\DoctrineQueries\DoctrineQueries;
 use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
 use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
+use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
+use Shredio\DoctrineQueries\Exception\UnsupportedFieldTypeException;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineService;
 use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory;
 use Shredio\DoctrineQueries\Result\DatabaseExistenceResults;
@@ -66,7 +68,12 @@ final readonly class DoctrineQueriesDynamicReturnTypeExtension implements Dynami
 			return new GenericObjectType(DatabaseExistenceResults::class, [new NeverType()]);
 		}
 
-		$queryMetadata = $this->service->getQueryMetadataFor($entity, QueryType::Scalar);
+		try {
+			$queryMetadata = $this->service->getQueryMetadataFor($entity, QueryType::Scalar);
+		} catch (NoClassMetadataException) {
+			return null; // not an entity, reported by DoctrineQueriesRule
+		}
+
 		$arrayBuilder = ConstantArrayTypeBuilder::createEmpty();
 		foreach ($criteriaType->getArrays() as $arrayType) {
 			$constantArrays = $arrayType->getItemType()->getConstantArrays();
@@ -78,15 +85,13 @@ final readonly class DoctrineQueriesDynamicReturnTypeExtension implements Dynami
 				$criteriaTypes = $this->service->getCriteriaFromType($constantArray);
 				foreach ($criteriaTypes as $item) {
 					try {
-						$fieldMetadata = $queryMetadata->getFieldMetadata($item->field);
-					} catch (FieldNotExistsException|InvalidAssociationPathException) {
+						$fieldType = $this->service->createTypeForFieldMapping(
+							$queryMetadata->getFieldMetadata($item->field)->getFieldType(),
+							true,
+						);
+					} catch (FieldNotExistsException|InvalidAssociationPathException|UnsupportedFieldTypeException) {
 						return new GenericObjectType(DatabaseExistenceResults::class, [new NeverType()]);
 					}
-
-					$fieldType = $this->service->createTypeForFieldMapping(
-						$fieldMetadata->getFieldType(),
-						true,
-					);
 
 					$arrayBuilder->setOffsetValueType(new ConstantStringType($item->field->name), $fieldType);
 				}

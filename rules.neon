@@ -3,3 +3,7 @@ services:
 		class: Shredio\DoctrineQueries\PhpStan\Rule\DoctrineQueriesRule
 		tags:
 			- phpstan.rules.rule
+	-
+		class: Shredio\DoctrineQueries\PhpStan\Rule\ResultArrayKeyRule
+		tags:
+			- phpstan.rules.rule

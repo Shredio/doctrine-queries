@@ -8,6 +8,9 @@ use PHPStan\Type\Constant\ConstantArrayType;
 use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\MixedType;
 use PHPStan\Type\Type;
+use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
+use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
+use Shredio\DoctrineQueries\Exception\UnsupportedFieldTypeException;
 use Shredio\DoctrineQueries\Join\JoinParser;
 use Shredio\DoctrineQueries\Metadata\FieldMetadata;
 use Shredio\DoctrineQueries\Metadata\QueryMetadata;
@@ -54,10 +57,12 @@ final readonly class DynamicReturnTypeContext
 	/**
 	 * @param int $argumentIndex
 	 * @param list<CriteriaItemType> $criteria
+	 * @param int|null $joinConfigArgumentIndex The relations are left joined when the method has no join configuration
 	 */
 	public function tryToCreateTypeFromConstantType(
 		int $argumentIndex,
 		array $criteria = [],
+		?int $joinConfigArgumentIndex = null,
 	): Type
 	{
 		$arg = $this->args[$argumentIndex] ?? null;
@@ -70,10 +75,16 @@ final readonly class DynamicReturnTypeContext
 			return new MixedType();
 		}
 
-		return $this->service->determineTypeByFieldCriteria(
-			$this->createTypeFor($this->queryMetadata->getFieldMetadata(new Field($field))),
-			$field,
+		try {
+			$fieldMetadata = $this->queryMetadata->getFieldMetadata(new Field($field));
+		} catch (FieldNotExistsException|InvalidAssociationPathException) {
+			return new MixedType(); // reported by DoctrineQueriesRule
+		}
+
+		return $this->createNarrowedTypeFor(
+			$fieldMetadata,
 			$criteria,
+			$this->isInnerJoin($this->getJoinConfig($joinConfigArgumentIndex), $fieldMetadata->field),
 		);
 	}
 
@@ -88,14 +99,15 @@ final readonly class DynamicReturnTypeContext
 		$keyTypes = [];
 		$valueTypes = [];
 
-		$selection = SelectParser::getMetadataForSelection($this->queryMetadata, $select, $errors); // pass $errors to ignore them
+		$errors = []; // collects invalid fields instead of throwing, DoctrineQueriesRule reports them
+		$selection = SelectParser::getMetadataForSelection($this->queryMetadata, $select, $errors);
 
 		foreach ($selection as $fieldToSelect) {
 			$keyTypes[] = new ConstantStringType($fieldToSelect->alias);
-			$valueTypes[] = $this->service->determineTypeByFieldCriteria(
-				$this->createTypeFor($fieldToSelect->metadata, isInnerJoin: $this->isInnerJoin($joinConfig, $fieldToSelect->metadata->field)),
-				$fieldToSelect->metadata->field->name,
+			$valueTypes[] = $this->createNarrowedTypeFor(
+				$fieldToSelect->metadata,
 				$criteria,
+				$this->isInnerJoin($joinConfig, $fieldToSelect->metadata->field),
 			);
 		}
 
@@ -114,11 +126,25 @@ final readonly class DynamicReturnTypeContext
 		return $this->service->getSelectFromType($this->scope->getType($arg->value));
 	}
 
-	private function createTypeFor(FieldMetadata $fieldMetadata, ?bool $isInnerJoin = null): Type
+	/**
+	 * @param list<CriteriaItemType> $criteria
+	 */
+	private function createNarrowedTypeFor(FieldMetadata $fieldMetadata, array $criteria, ?bool $isInnerJoin = null): Type
 	{
-		return $this->service->createTypeForFieldMapping(
-			$fieldMetadata->getFieldType($isInnerJoin),
-			$this->queryType === QueryType::Scalar,
+		try {
+			$fieldType = $fieldMetadata->getFieldType($isInnerJoin);
+		} catch (UnsupportedFieldTypeException) {
+			return new MixedType(); // e.g. a to-many association, reported by DoctrineQueriesRule
+		}
+
+		// Doctrine converts selected fields to PHP values except in scalar queries, but never IDENTITY() of an association.
+		$isDatabaseValue = $this->queryType === QueryType::Scalar || $fieldMetadata->isAssociation;
+
+		return $this->service->determineTypeByFieldCriteria(
+			$this->service->createTypeForFieldMapping($fieldType, $isDatabaseValue),
+			$fieldMetadata->field->selector, // the selector, the name alone does not tell "id" from "author.id"
+			$criteria,
+			$this->service->comparesStringsExactly($fieldType),
 		);
 	}
 
