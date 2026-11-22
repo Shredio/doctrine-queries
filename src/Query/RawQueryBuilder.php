@@ -31,8 +31,8 @@ final class RawQueryBuilder
 
 	public function setParameter(string $key, mixed $value, string|Type|ParameterType|ArrayParameterType|null $type = null): self
 	{
-		$this->parameters[$key] = $value;
 		$this->types[$key] = $type ?? $this->detectType($value);
+		$this->parameters[$key] = $this->toDatabaseValue($value);
 
 		return $this;
 	}
@@ -40,6 +40,22 @@ final class RawQueryBuilder
 	public function getResult(): DatabaseRawResults
 	{
 		return new DatabaseRawResults($this->connection->executeQuery($this->query, $this->parameters, $this->types));
+	}
+
+	/**
+	 * DBAL types do not convert enums, so backed enums (also inside a list) are passed as their values.
+	 */
+	private function toDatabaseValue(mixed $value): mixed
+	{
+		if ($value instanceof BackedEnum) {
+			return $value->value;
+		}
+
+		if (is_array($value)) {
+			return array_map(static fn (mixed $item): mixed => $item instanceof BackedEnum ? $item->value : $item, $value);
+		}
+
+		return $value;
 	}
 
 	private function detectType(mixed $value): string|ArrayParameterType|ParameterType
