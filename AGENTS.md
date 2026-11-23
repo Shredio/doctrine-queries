@@ -51,6 +51,11 @@ $names = $queries->scalars->findColumnValuesBy(User::class, 'name')->asArray();
 
 // Multiple criteria (AND)
 ['age >' => 18, 'status' => 'active', 'city' => ['Prague', 'Brno']]
+
+// Alternatives (OR): passed without a key, the criteria of one alternative are combined by AND, groups can be nested
+// published AND (author.name = John OR (title LIKE ... AND featured))
+['published' => true, Criteria::anyOf(['author.name' => 'John'], ['title LIKE' => '%John%', 'featured' => true])]
+// No alternative or an alternative without criteria throws, a to-many association is checked by an EXISTS of each alternative,
 ```
 
 ## Field Selection

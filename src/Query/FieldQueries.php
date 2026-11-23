@@ -29,7 +29,7 @@ abstract readonly class FieldQueries extends BaseQueries
 	 * Finds entities by criteria and returns their selected fields.
 	 *
 	 * @param class-string $entity The entity class to query
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param ?Pagination $pagination Pagination settings (limit and offset)
@@ -55,7 +55,7 @@ abstract readonly class FieldQueries extends BaseQueries
 	 * Finds a single entity by criteria and returns its selected fields.
 	 *
 	 * @param class-string $entity The entity class to query
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
@@ -82,7 +82,7 @@ abstract readonly class FieldQueries extends BaseQueries
 	 * Finds entities by criteria and returns their selected fields, keys are the values from the $indexField.
 	 *
 	 * @param class-string $entity The entity class to query
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
@@ -111,7 +111,7 @@ abstract readonly class FieldQueries extends BaseQueries
 	 * @param class-string $entity The entity class to query
 	 * @param string $key The field to use as keys
 	 * @param string $value The field to use as values
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return DatabasePairs<array-key, TValue> Key-value pairs collection
@@ -136,7 +136,7 @@ abstract readonly class FieldQueries extends BaseQueries
 	 *
 	 * @param class-string $entity The class of the entity to fetch the field from.
 	 * @param string $field The specific field to retrieve from the entity.
-	 * @param array<string, mixed> $criteria Optional criteria to filter the query.
+	 * @param array<array-key, mixed> $criteria Optional criteria to filter the query.
 	 * @param array<string, SortDirection|NullsLast> $orderBy Optional ordering of the results.
 	 * @param bool $distinct Whether to return distinct values. USE as a named argument.
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
@@ -166,7 +166,7 @@ abstract readonly class FieldQueries extends BaseQueries
 	 *
 	 * @param class-string $entity The class of the entity to fetch the field from.
 	 * @param string $field The specific field to retrieve from the entity.
-	 * @param array<string, mixed> $criteria Criteria to filter the query.
+	 * @param array<array-key, mixed> $criteria Criteria to filter the query.
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters, they decide which entity is the first one
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return TValue|null

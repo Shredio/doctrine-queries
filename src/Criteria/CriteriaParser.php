@@ -5,6 +5,7 @@ namespace Shredio\DoctrineQueries\Criteria;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use InvalidArgumentException;
+use Shredio\DoctrineQueries\Allocator\ParameterCounter;
 use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 use Shredio\DoctrineQueries\Query\SubQuery;
 use Shredio\DoctrineQueries\Select\Field;
@@ -36,17 +37,17 @@ final readonly class CriteriaParser
 	}
 
 	/**
-	 * @param array<string, mixed> $criteria
+	 * @param array<string, mixed> $criteria Criteria of fields, the groups of Criteria::anyOf() are parsed by their alternatives
+	 * @param ParameterCounter $parameterCounter Shared by the criteria of one query that are parsed separately
 	 * @return iterable<ParsedCriteria>
 	 */
 	public static function parse(
 		array $criteria,
 		string $suffix = '',
 		?QueryMetadata $queryMetadata = null,
+		ParameterCounter $parameterCounter = new ParameterCounter(),
 	): iterable
 	{
-		$index = 0;
-
 		$parameterName = 'param';
 		if ($suffix !== '') {
 			$parameterName .= '_' . $suffix;
@@ -140,9 +141,7 @@ final readonly class CriteriaParser
 			$param = null;
 
 			if ($operand !== null) {
-				$index++;
-
-				$param = $parameterName . $index;
+				$param = $parameterName . $parameterCounter->getNextIndex();
 				$operand = sprintf($operand, ':' . $param);
 			}
 

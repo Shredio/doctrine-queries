@@ -222,6 +222,39 @@ $criteria = [
 ];
 ```
 
+### Alternatives (OR)
+
+`Criteria::anyOf()` matches the rows that match at least one of its alternatives. The criteria of one alternative all have to match, as the criteria of a query do. The group is passed among the criteria without a key:
+
+```php
+use Shredio\DoctrineQueries\Criteria\Criteria;
+
+// published AND (author.name = 'John' OR (title LIKE '%John%' AND featured))
+$criteria = [
+    'published' => true,
+    Criteria::anyOf(
+        ['author.name' => 'John'],
+        ['title LIKE' => '%John%', 'featured' => true],
+    ),
+];
+
+// More groups are combined by AND, an alternative can contain another group
+$criteria = [
+    Criteria::anyOf(['status' => 'active'], ['role' => 'admin']),
+    Criteria::anyOf(
+        ['age >=' => 18],
+        ['verified' => true, Criteria::anyOf(['city' => 'Prague'], ['city' => 'Brno'])],
+    ),
+];
+```
+
+Alternatives of a single field are shorter as a list, `['status' => ['active', 'pending']]`.
+
+- `Criteria::anyOf()` without an alternative and an alternative without criteria throw an `InvalidArgumentException`. An alternative that matches every row, e.g. `['id !=' => []]`, makes the whole group match every row.
+- A to-many association is checked by an `EXISTS` sub-query of each alternative, so the related entity is not shared with the other alternatives or with the criteria around the group: `['comments.approved' => true, Criteria::anyOf(['comments.author.name' => 'John'], ['pinned' => true])]` matches a post with an approved comment and another comment by John. Use a [sub-query](#subqueries) on the related entity when one related entity has to match all of it.
+- Relations are left joined by default, so a row without the relation can match by another alternative. An inner join (`joinConfig`) requires the relation of every row.
+- `deleteBy()` accepts groups too, their alternatives cannot use related entities either.
+
 ## Sorting
 
 Directions are `SortDirection` cases (native since PHP 8.6, polyfilled below it), the same enum Doctrine ORM 3.7 expects instead of the deprecated `'ASC'` / `'DESC'` strings.

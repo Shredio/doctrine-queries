@@ -7,6 +7,7 @@ use Doctrine\ORM\Query\Parameter;
 use Generator;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Shredio\DoctrineQueries\Allocator\ParameterCounter;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
 use Shredio\DoctrineQueries\Criteria\ParsedCriteria;
 use Shredio\DoctrineQueries\DoctrineQueries;
@@ -259,6 +260,26 @@ final class CriteriaParserTest extends TestCase
 		$this->assertSame('IN(SELECT e1.id FROM Tests\Entity\Author e1 WHERE e1.name = :param_e1_1)', $parsed->operator);
 		$this->assertNotNull($parsed->parameters);
 		$this->assertSame(['param_e1_1' => 'John Doe'], $this->parametersToArray($parsed->parameters->toArray()));
+	}
+
+	public function testParameterCounterIsSharedByCriteriaParsedSeparately(): void
+	{
+		$parameterCounter = new ParameterCounter();
+		$parse = static fn (array $criteria): array => array_map(
+			static fn (ParsedCriteria $parsed): ?string => $parsed->parameterName,
+			iterator_to_array(CriteriaParser::parse($criteria, 'e0', parameterCounter: $parameterCounter), false),
+		);
+
+		$this->assertSame(['param_e0_1', null, 'param_e0_2'], $parse(['first' => 1, 'second' => null, 'third' => [1, 2]]));
+		$this->assertSame(['param_e0_3'], $parse(['first' => 2]), 'The same field is bound to another parameter.');
+		$this->assertSame([null], $parse(['second !=' => null]));
+		$this->assertSame(['param_e0_4', 'param_e0_5'], $parse(['third LIKE' => '%a%', 'fourth >' => 1]));
+	}
+
+	public function testParameterCounterStartsAgainWithoutASharedOne(): void
+	{
+		$this->assertSame('param_1', $this->parse(['first' => 1])[0]->parameterName);
+		$this->assertSame('param_1', $this->parse(['first' => 2])[0]->parameterName);
 	}
 
 	/**

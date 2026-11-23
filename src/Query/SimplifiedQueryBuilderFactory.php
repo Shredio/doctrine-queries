@@ -20,6 +20,8 @@ use Doctrine\Persistence\ManagerRegistry;
 use InvalidArgumentException;
 use LogicException;
 use Shredio\DoctrineQueries\Allocator\FieldAliasAllocator;
+use Shredio\DoctrineQueries\Allocator\ParameterCounter;
+use Shredio\DoctrineQueries\Criteria\AnyOf;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
 use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
 use Shredio\DoctrineQueries\Join\JoinParser;
@@ -97,7 +99,7 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * @template T of object
 	 * @param class-string<T> $entity The entity class to query
 	 * @param string[] $select Fields to select (empty for all fields)
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param bool $distinct Whether to return distinct results
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
@@ -156,7 +158,7 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * Creates a query builder for counting entities by criteria.
 	 * 
 	 * @param class-string $entity The entity class to count
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Query builder configured for counting
 	 */
@@ -287,24 +289,14 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * filter by the association with a sub-query instead.
 	 *
 	 * @param class-string $entity The entity class to delete from
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @return QueryBuilder Query builder configured for deletion
 	 */
 	public function createDelete(string $entity, array $criteria = []): QueryBuilder
 	{
 		$em = $this->getEntityManager($entity);
 
-		foreach (array_keys($criteria) as $criteriaKey) {
-			[$field] = CriteriaParser::parseSingleField($criteriaKey);
-			if ($field->hasParent()) {
-				throw new LogicException(sprintf(
-					'Cannot delete %s by criteria "%s", DQL DELETE does not support joins. Filter by the association with a sub-query instead, e.g. [\'%s\' => $queries->subQuery(...)].',
-					$entity,
-					$criteriaKey,
-					strstr($field->selector, '.', true),
-				));
-			}
-		}
+		self::assertNoRelatedCriteria($entity, $criteria);
 
 		$metadata = $this->createMetadata($em, $entity, QueryType::Scalar);
 
@@ -324,7 +316,7 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * association too, then they filter the rows of the related entities.
 	 *
 	 * @param QueryBuilder $qb The query builder to modify
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @param array<string, true> $rowLevelPaths Association paths joined by the selection or the ordering
 	 */
@@ -336,11 +328,59 @@ final readonly class SimplifiedQueryBuilderFactory
 		array $rowLevelPaths = [],
 	): void
 	{
+		foreach ($this->createConditions($qb, $criteria, $metadata, $joinConfig, $rowLevelPaths, new ParameterCounter()) as $condition) {
+			$qb->andWhere($condition);
+		}
+	}
+
+	/**
+	 * Creates the conditions of the criteria, which all have to match, and binds their parameters to the query builder.
+	 *
+	 * @param array<array-key, mixed> $criteria Filtering criteria
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
+	 * @param array<string, true> $rowLevelPaths Association paths joined by the selection or the ordering
+	 * @param ParameterCounter $parameterCounter Shared by all the criteria of the query builder, also by the nested ones
+	 * @return list<string> Each condition can be combined with the others by AND or OR as it is
+	 */
+	private function createConditions(
+		QueryBuilder $qb,
+		array $criteria,
+		QueryMetadata $metadata,
+		array|string $joinConfig,
+		array $rowLevelPaths,
+		ParameterCounter $parameterCounter,
+	): array
+	{
+		$fieldCriteria = [];
 		$criteriaByToManyPath = [];
+		$anyOfGroups = [];
 		foreach ($criteria as $criteriaKey => $value) {
+			if (is_int($criteriaKey)) {
+				if (!$value instanceof AnyOf) {
+					throw new InvalidArgumentException(sprintf(
+						'Criteria item %d has no field name, only Criteria::anyOf() can be passed without one, %s given.',
+						$criteriaKey,
+						get_debug_type($value),
+					));
+				}
+
+				$anyOfGroups[] = $value;
+
+				continue;
+			}
+
+			if ($value instanceof AnyOf) {
+				throw new InvalidArgumentException(sprintf(
+					'Criteria::anyOf() cannot be compared with "%s", pass it among the criteria without a key.',
+					$criteriaKey,
+				));
+			}
+
 			[$field] = CriteriaParser::parseSingleField($criteriaKey);
 			$toManyPath = $metadata->getFirstToManyPath($field);
 			if ($toManyPath === null || isset($rowLevelPaths[$toManyPath])) {
+				$fieldCriteria[$criteriaKey] = $value;
+
 				continue;
 			}
 
@@ -350,19 +390,20 @@ final readonly class SimplifiedQueryBuilderFactory
 
 			// Relative to the related entity, e.g. "hashtag LIKE" for "hashTags.hashtag LIKE".
 			$criteriaByToManyPath[$toManyPath][substr($criteriaKey, strlen($toManyPath) + 1)] = $value;
-			unset($criteria[$criteriaKey]);
 		}
 
 		$items = CriteriaParser::parse(
-			$criteria,
+			$fieldCriteria,
 			suffix: $metadata->getRootAlias(),
 			queryMetadata: $metadata,
+			parameterCounter: $parameterCounter,
 		);
 
+		$conditions = [];
 		$parameters = $qb->getParameters();
 
 		foreach ($items as $parsed) {
-			$qb->andWhere($parsed->getExpression($metadata));
+			$conditions[] = $parsed->getExpression($metadata);
 
 			if ($parsed->parameterName) {
 				if ($parsed->value instanceof DoctrineParameterAware) {
@@ -382,12 +423,52 @@ final readonly class SimplifiedQueryBuilderFactory
 		}
 
 		foreach ($criteriaByToManyPath as $toManyPath => $relatedCriteria) {
-			$this->applyToManyCriteria($qb, $metadata, $toManyPath, $relatedCriteria, $joinConfig);
+			$conditions[] = $this->createToManyCondition($qb, $metadata, $toManyPath, $relatedCriteria, $joinConfig);
 		}
+
+		foreach ($anyOfGroups as $anyOf) {
+			$conditions[] = $this->createAnyOfCondition($qb, $anyOf, $metadata, $joinConfig, $rowLevelPaths, $parameterCounter);
+		}
+
+		return $conditions;
 	}
 
 	/**
-	 * Adds "EXISTS (SELECT 1 FROM Related r WHERE <r belongs to the parent> AND <criteria>)". All criteria of the association
+	 * Creates "(<alternative> OR <alternative>)", the criteria of one alternative are combined by AND. A to-many association
+	 * is checked by an EXISTS sub-query of each alternative, its related entity is not shared with the other alternatives
+	 * or with the criteria around the group.
+	 *
+	 * @param AnyOf<list<array<array-key, mixed>>> $anyOf
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
+	 * @param array<string, true> $rowLevelPaths Association paths joined by the selection or the ordering
+	 */
+	private function createAnyOfCondition(
+		QueryBuilder $qb,
+		AnyOf $anyOf,
+		QueryMetadata $metadata,
+		array|string $joinConfig,
+		array $rowLevelPaths,
+		ParameterCounter $parameterCounter,
+	): string
+	{
+		$alternatives = [];
+		foreach ($anyOf->alternatives as $alternative) {
+			$conditions = $this->createConditions($qb, $alternative, $metadata, $joinConfig, $rowLevelPaths, $parameterCounter);
+
+			$alternatives[] = match (count($conditions)) {
+				// Criteria without a condition match every row, e.g. ['id !=' => []]. The group is not left out,
+				// the other alternatives have bound their parameters already.
+				0 => '1 = 1',
+				1 => $conditions[0],
+				default => sprintf('(%s)', implode(' AND ', $conditions)),
+			};
+		}
+
+		return count($alternatives) === 1 ? $alternatives[0] : sprintf('(%s)', implode(' OR ', $alternatives));
+	}
+
+	/**
+	 * Creates "EXISTS (SELECT 1 FROM Related r WHERE <r belongs to the parent> AND <criteria>)". All criteria of the association
 	 * are checked in one sub-query, so they have to match the same related entity, as they would in a join.
 	 *
 	 * The sub-query selects from the related entity instead of joining the association, Doctrine refuses to iterate a query
@@ -396,13 +477,13 @@ final readonly class SimplifiedQueryBuilderFactory
 	 * @param array<string, mixed> $relatedCriteria Criteria relative to the related entity
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 */
-	private function applyToManyCriteria(
+	private function createToManyCondition(
 		QueryBuilder $qb,
 		QueryMetadata $metadata,
 		string $toManyPath,
 		array $relatedCriteria,
 		array|string $joinConfig,
-	): void
+	): string
 	{
 		$association = new Field($toManyPath);
 		$parentPath = $association->getParent();
@@ -432,11 +513,40 @@ final readonly class SimplifiedQueryBuilderFactory
 			$condition = sprintf('(%s OR NOT EXISTS (%s))', $condition, $noRelatedEntity->getDQL());
 		}
 
-		$qb->andWhere($condition);
-
 		$parameters = $qb->getParameters();
 		foreach ($subQuery->getParameters() as $parameter) {
 			$parameters->add($parameter);
+		}
+
+		return $condition;
+	}
+
+	/**
+	 * DQL DELETE statements cannot join, also not for the criteria of an alternative of Criteria::anyOf().
+	 *
+	 * @param class-string $entity
+	 * @param array<array-key, mixed> $criteria
+	 */
+	private static function assertNoRelatedCriteria(string $entity, array $criteria): void
+	{
+		foreach ($criteria as $criteriaKey => $value) {
+			if (is_int($criteriaKey)) {
+				foreach ($value instanceof AnyOf ? $value->alternatives : [] as $alternative) { // anything else is rejected by createConditions()
+					self::assertNoRelatedCriteria($entity, $alternative);
+				}
+
+				continue;
+			}
+
+			[$field] = CriteriaParser::parseSingleField($criteriaKey);
+			if ($field->hasParent()) {
+				throw new LogicException(sprintf(
+					'Cannot delete %s by criteria "%s", DQL DELETE does not support joins. Filter by the association with a sub-query instead, e.g. [\'%s\' => $queries->subQuery(...)].',
+					$entity,
+					$criteriaKey,
+					strstr($field->selector, '.', true),
+				));
+			}
 		}
 	}
 

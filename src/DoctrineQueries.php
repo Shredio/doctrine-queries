@@ -58,7 +58,7 @@ final readonly class DoctrineQueries
 	 * Determines if an entity exists in the database based on the given criteria.
 	 *
 	 * @param class-string $entity The class of the entity to check for existence.
-	 * @param array<string, mixed> $criteria The criteria used to filter the query.
+	 * @param array<array-key, mixed> $criteria The criteria used to filter the query.
 	 *
 	 * @return bool True if an entity matching the criteria exists, otherwise false.
 	 */
@@ -92,7 +92,7 @@ final readonly class DoctrineQueries
 	 * Counts entities by a set of criteria.
 	 *
 	 * @param class-string $entity
-	 * @param array<string, mixed> $criteria
+	 * @param array<array-key, mixed> $criteria
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return int<0, max>
 	 */
@@ -117,7 +117,7 @@ final readonly class DoctrineQueries
 	 * use a sub-query instead: ['author' => $queries->subQuery(Author::class, ['name' => 'John'], select: ['id'])]
 	 *
 	 * @param class-string $entity
-	 * @param array<string, mixed> $criteria
+	 * @param array<array-key, mixed> $criteria
 	 * @return int<0, max> Number of deleted entities
 	 */
 	public function deleteBy(string $entity, array $criteria = []): int
@@ -133,7 +133,7 @@ final readonly class DoctrineQueries
 
 	/**
 	 * @param class-string $entity The entity class to query
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param string[] $select Fields to select
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)

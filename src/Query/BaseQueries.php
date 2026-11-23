@@ -46,7 +46,7 @@ abstract readonly class BaseQueries
 	 *
 	 * @template T of object
 	 * @param class-string<T> $entity The entity class to query
-	 * @param array<string, mixed> $criteria Filtering criteria.
+	 * @param array<array-key, mixed> $criteria Filtering criteria.
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters Examples:
 	 *   - ['name' => SortDirection::Ascending] - sort by name ascending
 	 *   - ['createdAt' => SortDirection::Descending] - sort by creation date descending
@@ -120,7 +120,7 @@ abstract readonly class BaseQueries
 	 * @param class-string<T> $entity The entity class to query
 	 * @param string $key The field to use as keys
 	 * @param string $value The field to use as values
-	 * @param array<string, mixed> $criteria Filtering criteria.
+	 * @param array<array-key, mixed> $criteria Filtering criteria.
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder for pairs
@@ -155,7 +155,7 @@ abstract readonly class BaseQueries
 	 * @template T of object
 	 * @param class-string<T> $entity The entity class to query
 	 * @param string $field The field to retrieve values from
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters
 	 * @param bool $distinct Whether to return distinct values
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
@@ -194,7 +194,7 @@ abstract readonly class BaseQueries
 	 * @template T of object
 	 * @param class-string<T> $entity The entity class to query
 	 * @param string $field The field to retrieve a value from
-	 * @param array<string, mixed> $criteria Filtering criteria
+	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, SortDirection|NullsLast> $orderBy Sorting parameters, they decide which row is the first one
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
 	 * @return QueryBuilder Configured query builder for single value (limited to 1 result)
