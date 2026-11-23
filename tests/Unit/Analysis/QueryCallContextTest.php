@@ -1,19 +1,19 @@
 <?php declare(strict_types = 1);
 
-namespace Tests\Unit\Context;
+namespace Tests\Unit\Analysis;
 
-use Shredio\DoctrineQueries\PhpStan\TypeExtension\DynamicReturnTypeContext;
+use Shredio\DoctrineQueries\Analysis\QueryCallContext;
 use Tests\TestCase;
 
-final class DynamicReturnTypeContextTest extends TestCase
+final class QueryCallContextTest extends TestCase
 {
 
-	public function testFixJoinConfig(): void
+	public function testNormalizeJoinConfig(): void
 	{
 		$this->assertSame([
 			'user' => 'inner',
 			'user.role' => 'inner',
-		], DynamicReturnTypeContext::fixJoinConfig([
+		], QueryCallContext::normalizeJoinConfig([
 			'user' => 'left',
 			'user.role' => 'inner',
 		]));
@@ -23,7 +23,7 @@ final class DynamicReturnTypeContextTest extends TestCase
 			'user.role' => 'left',
 			'other' => 'left',
 			'another' => 'inner',
-		], DynamicReturnTypeContext::fixJoinConfig([
+		], QueryCallContext::normalizeJoinConfig([
 			'user' => 'inner',
 			'user.role' => 'left',
 			'other' => 'left',
@@ -36,7 +36,7 @@ final class DynamicReturnTypeContextTest extends TestCase
 			'user.role.sub_role' => 'inner',
 			'other' => 'left',
 			'another' => 'inner',
-		], DynamicReturnTypeContext::fixJoinConfig([
+		], QueryCallContext::normalizeJoinConfig([
 			'user' => 'left',
 			'user.role' => 'left',
 			'user.role.sub_role' => 'inner',

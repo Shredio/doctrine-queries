@@ -75,4 +75,20 @@ class ResultArrayKeyRuleCases
 		$pairs->asArray();
 	}
 
+	/**
+	 * Calls that are not checked, the queries would be reported with the same arguments.
+	 */
+	public function uncheckedCalls(mixed $unknown, UnrelatedFinder $unrelatedFinder, string $method): void
+	{
+		$unknown->findPairsBy(Article::class, 'symbol', 'id')->asArray();
+		$unrelatedFinder->findPairsBy(Article::class, 'symbol', 'id')->asArray();
+		$this->scalarQueries->$method(Article::class, 'symbol', 'id')->asArray();
+		$this->scalarQueries->findPairsBy(Article::class)->asArray();
+	}
+
+	public function entityReportedByDoctrineQueriesRule(): void
+	{
+		$this->scalarQueries->findPairsBy(UnrelatedFinder::class, 'symbol', 'id')->asArray();
+	}
+
 }

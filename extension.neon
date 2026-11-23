@@ -1,5 +1,9 @@
 services:
 	-
+		class: Shredio\DoctrineQueries\PhpStan\TypeExtension\CriteriaDynamicReturnTypeExtension
+		tags:
+			- phpstan.broker.dynamicStaticMethodReturnTypeExtension
+	-
 		class: Shredio\DoctrineQueries\PhpStan\TypeExtension\ScalarQueriesDynamicReturnTypeExtension
 		tags:
 			- phpstan.broker.dynamicMethodReturnTypeExtension
@@ -12,4 +16,4 @@ services:
 		tags:
 			- phpstan.broker.dynamicMethodReturnTypeExtension
 	-
-		class: Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
+		class: Shredio\DoctrineQueries\PhpStan\PhpStanAnalyzerFactory

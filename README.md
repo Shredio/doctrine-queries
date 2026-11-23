@@ -497,12 +497,21 @@ This provides:
 - Type inference for query results
 - Validation of entity classes and field names in criteria, ordering, selection, join configuration and preloading
 - Detection of unsupported criteria operators and of criteria on related entities in `deleteBy()`
+- The same validation of the alternatives of `Criteria::anyOf()`, and detection of an alternative without criteria. The alternatives have to be constant arrays, as the criteria do. They do not narrow the inferred types, a row can match by any of them
 - Detection of options passed as positional arguments (`orderBy`, `select`, `pagination`, `joinConfig`)
 - Detection of wildcards passed where a single field is expected, e.g. `findColumnValuesBy(User::class, '*')`
 - Detection of sub-queries selecting more than one column
 - Detection of `findPairsBy()->asArray()` and `findIndexedBy()->asArray()` whose key can be `NULL` or is not an integer or a string, see [Key-Value Pairs](#key-value-pairs). Only calls chained directly on the finder are checked, a result stored in a variable first is not followed.
 
 Doctrine does not convert scalar results (`$queries->scalars`, and `IDENTITY()` of associations in `$queries->arrays`), so their PHP types depend on the database driver. The extension infers them for the driver of the connection returned by phpstan-doctrine's `objectManagerLoader`, including `PDO::ATTR_STRINGIFY_FETCHES`. For example a `decimal` column is `float|int` on `pdo_sqlite` but `numeric-string` on `pdo_mysql` and `mysqli`, so configure the loader with the same driver and options as the application. Criteria narrow the inferred type only when the database returns the value in the form it was compared in, e.g. `['name' => 'John']` does not narrow `name` to `'John'` on MySQL, whose default collations compare case-insensitively.
+
+The inferred types are narrowed only by what every returned row certainly matches:
+
+- `['id' => 1]` narrows `id` to `1`, `['id !=' => 1]` excludes `1`. A value that is not known exactly excludes nothing, `['id !=' => $id]` keeps `int`.
+- Every comparison except with `null` excludes `NULL`: `['price >' => 5]`, `['status !=' => 'banned']` and `['name LIKE' => 'J%']` make a nullable field non-nullable.
+- A case of an enum narrows the field to the case, `['type' => ArticleType::Blog]`, or to its value in `$queries->scalars`.
+- Criteria built by conditions narrow by the criteria each variant has: an item added in an `if` does not narrow, `$published ? ['id' => 1] : ['id' => 2]` narrows `id` to `1|2`.
+- A selection, a field or a join configuration built by conditions gives the type of any of the queries that can run, e.g. `array{id: int, title?: string}`. A join that is not certainly an inner one is taken as a left join. When the selection or the entity is not known (`select: $fields`, unpacked arguments), the result has the declared type.
 
 ## Testing
 

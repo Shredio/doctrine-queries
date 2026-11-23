@@ -419,4 +419,16 @@ class DoctrineQueriesRuleCases
 		$this->scalarQueries->findSingleColumnValueBy(Article::class, 'title', [], joinConfig: ['author' => 'inner']);
 	}
 
+	/**
+	 * Calls that are not checked, the queries would be reported with the same arguments.
+	 */
+	public function uncheckedCalls(mixed $unknown, UnrelatedFinder $unrelatedFinder, string $method): void
+	{
+		$this->scalarQueries->findBy();
+		$unknown->findBy('NonExistentEntity', ['invalidField' => 1]);
+		$unrelatedFinder->findBy('NonExistentEntity', ['invalidField' => 1]);
+		$this->scalarQueries->$method(Article::class, ['invalidField' => 1]);
+		$this->doctrineQueries->getLastId(Article::class);
+	}
+
 }

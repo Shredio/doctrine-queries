@@ -2,11 +2,11 @@ services:
 	-
 		class: Shredio\DoctrineQueries\PhpStan\TypeExtension\DoctrineQueriesDynamicReturnTypeExtension
 		arguments:
-			- @Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
+			- @Shredio\DoctrineQueries\PhpStan\PhpStanAnalyzerFactory
 		tags:
 			- phpstan.broker.dynamicMethodReturnTypeExtension
 	-
-		class: Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
+		class: Shredio\DoctrineQueries\PhpStan\PhpStanAnalyzerFactory
 	-
 		factory: PHPStan\Type\Doctrine\Descriptors\ReflectionDescriptor('Tests\Doctrine\SymbolType')
 		tags:

@@ -1,10 +1,14 @@
 services:
 	-
-		class: Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
+		class: Shredio\DoctrineQueries\PhpStan\TypeExtension\CriteriaDynamicReturnTypeExtension
+		tags:
+			- phpstan.broker.dynamicStaticMethodReturnTypeExtension
+	-
+		class: Shredio\DoctrineQueries\PhpStan\PhpStanAnalyzerFactory
 	-
 		class: Shredio\DoctrineQueries\PhpStan\Rule\DoctrineQueriesRule
 		arguments:
-			- @Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory
+			- @Shredio\DoctrineQueries\PhpStan\PhpStanAnalyzerFactory
 		tags:
 			- phpstan.rules.rule
 	-

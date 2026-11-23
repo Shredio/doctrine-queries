@@ -2,6 +2,7 @@
 
 namespace Tests\PhpStan\RuntimeTypes;
 
+use Shredio\DoctrineQueries\Criteria\Criteria;
 use Shredio\DoctrineQueries\DoctrineQueries;
 use SortDirection;
 use Tests\Entity\Article;
@@ -60,6 +61,41 @@ final readonly class RuntimeTypesCases
 			'flag' => false,
 			'small' => -3,
 		])->asArray();
+	}
+
+	/**
+	 * The first row matches by the second alternative, its nullable columns are NULL and its other columns differ.
+	 *
+	 * @return mixed[]
+	 */
+	public function scalarsNotNarrowedByAlternatives(): array
+	{
+		return $this->queries->scalars->findBy(TypedValues::class, [
+			Criteria::anyOf(
+				[
+					'nullableNumber !=' => null,
+					'nullableFlag !=' => null,
+					'nullablePrice !=' => null,
+					'nullableRatio !=' => null,
+					'nullableMoment !=' => null,
+					'flag' => false,
+					'small' => -3,
+				],
+				['id' => 1],
+			),
+		], self::ById)->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function scalarsNarrowedByCriteriaAroundAlternatives(): array
+	{
+		return $this->queries->scalars->findBy(TypedValues::class, [
+			'nullableNumber !=' => null,
+			Criteria::anyOf(['small' => 7], ['flag' => false]),
+			'small' => -3,
+		], select: ['id', 'nullableNumber', 'small', 'flag'])->asArray();
 	}
 
 	/**

@@ -1,21 +1,27 @@
 <?php declare(strict_types = 1);
 
-namespace Shredio\DoctrineQueries\PhpStan;
+namespace Shredio\DoctrineQueries\Analysis;
 
+use Closure;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\Persistence\Mapping\ClassMetadata as PersistenceClassMetadata;
 use Doctrine\Persistence\Mapping\ClassMetadataFactory;
 use LogicException;
-use PHPStan\Type\Doctrine\ObjectMetadataResolver;
 use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
 
 /**
+ * The metadata of the entities as the static analyser loads them, e.g. by the objectManagerLoader of phpstan-doctrine.
+ *
  * @implements ClassMetadataFactory<ClassMetadata<object>>
  */
-final readonly class PhpstanClassMetadataFactory implements ClassMetadataFactory
+final readonly class AnalysisClassMetadataFactory implements ClassMetadataFactory
 {
 
+	/**
+	 * @param Closure(class-string): (ClassMetadata<object>|null) $metadataLoader Returns null for a class that is not an entity
+	 */
 	public function __construct(
-		private ObjectMetadataResolver $objectMetadataResolver,
+		private Closure $metadataLoader,
 	)
 	{
 	}
@@ -27,10 +33,11 @@ final readonly class PhpstanClassMetadataFactory implements ClassMetadataFactory
 
 	/**
 	 * @return ClassMetadata<object>
+	 * @throws NoClassMetadataException
 	 */
 	public function getMetadataFor(string $className): ClassMetadata
 	{
-		return $this->objectMetadataResolver->getClassMetadata($className) ?? throw new NoClassMetadataException($className);
+		return ($this->metadataLoader)($className) ?? throw new NoClassMetadataException($className);
 	}
 
 	public function hasMetadataFor(string $className): bool
@@ -41,7 +48,7 @@ final readonly class PhpstanClassMetadataFactory implements ClassMetadataFactory
 	/**
 	 * @param ClassMetadata<object> $class
 	 */
-	public function setMetadataFor(string $className, \Doctrine\Persistence\Mapping\ClassMetadata $class): void
+	public function setMetadataFor(string $className, PersistenceClassMetadata $class): void
 	{
 		throw new LogicException('Not implemented');
 	}

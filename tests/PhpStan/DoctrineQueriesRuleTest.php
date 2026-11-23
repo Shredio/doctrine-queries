@@ -19,7 +19,7 @@ use PHPStan\Type\Doctrine\Descriptors\ReflectionDescriptor;
 use PHPStan\Type\Doctrine\Descriptors\SimpleArrayType;
 use PHPStan\Type\Doctrine\Descriptors\StringType;
 use PHPStan\Type\Doctrine\ObjectMetadataResolver;
-use Shredio\DoctrineQueries\PhpStan\PhpStanDoctrineServiceFactory;
+use Shredio\DoctrineQueries\PhpStan\PhpStanAnalyzerFactory;
 use Shredio\DoctrineQueries\PhpStan\Rule\DoctrineQueriesRule;
 use Tests\Doctrine\SymbolType;
 
@@ -44,9 +44,9 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 			new ReflectionDescriptor(SymbolType::class, $this->createReflectionProvider(), self::getContainer()),
 		]);
 
-		$serviceFactory = new PhpStanDoctrineServiceFactory($objectMetadataResolver, $descriptorRegistry, new DriverDetector());
+		$analyzerFactory = new PhpStanAnalyzerFactory($objectMetadataResolver, $descriptorRegistry, new DriverDetector());
 
-		return new DoctrineQueriesRule($objectMetadataResolver, $serviceFactory);
+		return new DoctrineQueriesRule($analyzerFactory);
 	}
 
 	public function testRule(): void
@@ -355,6 +355,196 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 			[
 				'Call to method Shredio\\DoctrineQueries\\Query\\ArrayQueries::findSingleColumnValueBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidOrderField`.',
 				418,
+			],
+		]);
+	}
+
+	public function testAnyOfCriteria(): void
+	{
+		$this->analyse([__DIR__ . '/Data/AnyOfCriteriaRuleCases.php'], [
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				102,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ArrayQueries::findOneBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidAlternativeField`.',
+				107,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ArrayQueries::findOneBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidCriteriaField`.',
+				107,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				112,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ObjectQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$firstInvalidField`.',
+				117,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ObjectQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$secondInvalidField`.',
+				117,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$nestedInvalidField`.',
+				122,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidFieldOfSecondGroup`.',
+				127,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidFieldInVariable`.',
+				136,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidRelatedField`.',
+				141,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article has an invalid association path `title`. The field `title` is not an association.',
+				146,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - `hashTags` of entity Tests\\Entity\\Article is a to-many association, use a field of the related entity instead, e.g. `hashTags.<field>`.',
+				151,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - criteria `id BETWEEN` uses an unsupported operator. Supported operators are: =, !=, <>, <, <=, >, >=, LIKE, NOT LIKE.',
+				156,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findIndexedBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				161,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ArrayQueries::findPairsBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				162,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findColumnValuesBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				163,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findSingleColumnValueBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				164,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ObjectQueries::findOneBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				165,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				166,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				167,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::deleteBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				168,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::subQuery() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
+				169,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::subQuery() - entity Tests\\Entity\\Author does not have a field or association named `$invalidAuthorField`.',
+				176,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::deleteBy() - criteria `author.name` refers to a related entity, DQL DELETE does not support joins. Filter by the association with a sub-query instead.',
+				184,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::deleteBy() - criteria `hashTags.hashtag` refers to a related entity, DQL DELETE does not support joins. Filter by the association with a sub-query instead.',
+				185,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - criteria item 0 has no field name, only Criteria::anyOf() can be passed without one, string given.',
+				190,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - criteria item 0 has no field name, only Criteria::anyOf() can be passed without one, array<string, string> given.',
+				191,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::deleteBy() - criteria item 5 has no field name, only Criteria::anyOf() can be passed without one, null given.',
+				192,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - criteria item 0 has no field name, only Criteria::anyOf() can be passed without one, string given.',
+				197,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - criteria `title` is compared with Criteria::anyOf(), pass it among the criteria without a key.',
+				202,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - criteria `author.name` is compared with Criteria::anyOf(), pass it among the criteria without a key.',
+				203,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - every alternative of Criteria::anyOf() must be a constant array representing criteria.',
+				213,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - every alternative of Criteria::anyOf() must be a constant array representing criteria.',
+				214,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - every alternative of Criteria::anyOf() must be a constant array representing criteria.',
+				215,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - every alternative of Criteria::anyOf() must be a constant array representing criteria.',
+				216,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - every alternative of Criteria::anyOf() must be a constant array representing criteria.',
+				217,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - an alternative of Criteria::anyOf() can have no criteria, which throws an exception.',
+				222,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - an alternative of Criteria::anyOf() can have no criteria, which throws an exception.',
+				223,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - Criteria::anyOf() is called without an alternative, which throws an exception.',
+				224,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - an alternative of Criteria::anyOf() can have no criteria, which throws an exception.',
+				231,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidFieldOfLongerGroup`.',
+				248,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidFieldOfConditionalAlternative`.',
+				251,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidUnpackedField`.',
+				257,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidInlineUnpackedField`.',
+				258,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidNamedField`.',
+				263,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidFieldOfLastAlternative`.',
+				268,
 			],
 		]);
 	}

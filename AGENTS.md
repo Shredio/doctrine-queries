@@ -56,6 +56,7 @@ $names = $queries->scalars->findColumnValuesBy(User::class, 'name')->asArray();
 // published AND (author.name = John OR (title LIKE ... AND featured))
 ['published' => true, Criteria::anyOf(['author.name' => 'John'], ['title LIKE' => '%John%', 'featured' => true])]
 // No alternative or an alternative without criteria throws, a to-many association is checked by an EXISTS of each alternative,
+// PHPStan validates the alternatives (constant arrays only) and does not narrow the result types by them
 ```
 
 ## Field Selection
