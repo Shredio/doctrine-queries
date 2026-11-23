@@ -2,6 +2,18 @@
 
 Type-safe Doctrine ORM query library with intuitive criteria system.
 
+## Running Tests
+
+Start the MySQL server from `compose.yaml` before running the tests and stop it afterwards, also when the tests fail:
+
+```bash
+docker compose up -d --wait
+composer test
+DATABASE_URL="pdo-mysql://root:root@127.0.0.1:3307/doctrine_queries" composer test
+DATABASE_URL="mysqli://root:root@127.0.0.1:3307/doctrine_queries" composer test
+docker compose stop
+```
+
 ## Core Classes
 
 - `DoctrineQueries` - Main entry point
