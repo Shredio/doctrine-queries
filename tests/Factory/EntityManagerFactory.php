@@ -12,6 +12,7 @@ use Doctrine\ORM\ORMSetup;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Tests\Doctrine\AccountNumberType;
 use Tests\Doctrine\BinaryIdType;
+use Tests\Doctrine\NonEmptyStringType;
 use Tests\Doctrine\SymbolType;
 
 final readonly class EntityManagerFactory
@@ -32,6 +33,7 @@ final readonly class EntityManagerFactory
 		SymbolType::Name => SymbolType::class,
 		BinaryIdType::Name => BinaryIdType::class,
 		AccountNumberType::Name => AccountNumberType::class,
+		NonEmptyStringType::Name => NonEmptyStringType::class,
 	];
 
 	/**

@@ -27,6 +27,10 @@ services:
 		factory: PHPStan\Type\Doctrine\Descriptors\ReflectionDescriptor('Tests\Doctrine\SymbolType')
 		tags:
 			- phpstan.doctrine.typeDescriptor
+	-
+		class: Tests\Doctrine\NonEmptyStringTypeDescriptor
+		tags:
+			- phpstan.doctrine.typeDescriptor
 
 includes:
 	- ../../vendor/phpstan/phpstan-doctrine/extension.neon
