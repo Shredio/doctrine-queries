@@ -321,5 +321,190 @@ final readonly class RuntimeTypesCases
 	{
 		return $this->queries->arrays->findPairsBy(TypedValues::class, 'id', 'priority')->asArray();
 	}
+	/**
+	 * @return mixed[]
+	 */
+	public function countGroupedByAssociation(): array
+	{
+		return $this->queries->countGroupedBy(Article::class, 'author')->asArray();
+	}
+
+	/**
+	 * The only article of Jane Smith has no symbol, its count is 0.
+	 *
+	 * @return mixed[]
+	 */
+	public function countGroupedByRelatedFieldWithCountedField(): array
+	{
+		return $this->queries->countGroupedBy(Article::class, 'author.name', field: 'symbol')->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function countGroupedBySmallint(): array
+	{
+		return $this->queries->countGroupedBy(TypedValues::class, 'small')->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function countGroupedByBigint(): array
+	{
+		return $this->queries->countGroupedBy(TypedValues::class, 'big', field: 'nullableNumber', distinct: true)->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function countGroupedByDate(): array
+	{
+		return $this->queries->countGroupedBy(TypedValues::class, 'day')->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function countGroupedByEnum(): array
+	{
+		return $this->queries->countGroupedBy(TypedValues::class, 'kind', ['kind !=' => null])->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function countGroupedByYielded(): array
+	{
+		return iterator_to_array($this->queries->countGroupedBy(TypedValues::class, 'priority')->yield());
+	}
+
+	public function sumOfSmallint(): mixed
+	{
+		return $this->queries->sumBy(TypedValues::class, 'small');
+	}
+
+	public function sumOfBigint(): mixed
+	{
+		return $this->queries->sumBy(TypedValues::class, 'big');
+	}
+
+	public function sumOfDecimal(): mixed
+	{
+		return $this->queries->sumBy(TypedValues::class, 'price');
+	}
+
+	public function sumOfFloat(): mixed
+	{
+		return $this->queries->sumBy(TypedValues::class, 'ratio');
+	}
+
+	public function sumOfRelatedField(): mixed
+	{
+		return $this->queries->sumBy(Article::class, 'author.role.id');
+	}
+
+	public function minOfDecimal(): mixed
+	{
+		return $this->queries->minBy(TypedValues::class, 'price');
+	}
+
+	public function maxOfBigint(): mixed
+	{
+		return $this->queries->maxBy(TypedValues::class, 'big');
+	}
+
+	public function maxOfFloat(): mixed
+	{
+		return $this->queries->maxBy(TypedValues::class, 'ratio');
+	}
+
+	public function maxOfBoolean(): mixed
+	{
+		return $this->queries->maxBy(TypedValues::class, 'flag');
+	}
+
+	public function minOfDate(): mixed
+	{
+		return $this->queries->minBy(TypedValues::class, 'day');
+	}
+
+	public function maxOfDateTime(): mixed
+	{
+		return $this->queries->maxBy(TypedValues::class, 'moment');
+	}
+
+	public function minOfTime(): mixed
+	{
+		return $this->queries->minBy(TypedValues::class, 'time');
+	}
+
+	public function maxOfStringEnum(): mixed
+	{
+		return $this->queries->maxBy(TypedValues::class, 'kind');
+	}
+
+	public function minOfIntegerEnum(): mixed
+	{
+		return $this->queries->minBy(TypedValues::class, 'priority');
+	}
+
+	public function maxOfGuid(): mixed
+	{
+		return $this->queries->maxBy(TypedValues::class, 'uuid');
+	}
+
+	public function maxOfCustomType(): mixed
+	{
+		return $this->queries->maxBy(Article::class, 'symbol');
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function sumGroupedByOfDecimal(): array
+	{
+		return $this->queries->sumGroupedBy(TypedValues::class, 'price', 'kind')->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function sumGroupedByOfNullableInteger(): array
+	{
+		return $this->queries->sumGroupedBy(TypedValues::class, 'nullableNumber', 'id')->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function sumGroupedByOfFloat(): array
+	{
+		return $this->queries->sumGroupedBy(TypedValues::class, 'ratio', 'small')->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function minGroupedByOfDateTime(): array
+	{
+		return $this->queries->minGroupedBy(TypedValues::class, 'nullableMoment', 'big')->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function maxGroupedByOfEnum(): array
+	{
+		return $this->queries->maxGroupedBy(TypedValues::class, 'priority', 'day')->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function maxGroupedByAssociation(): array
+	{
+		return $this->queries->maxGroupedBy(Article::class, 'createdAt', 'author')->asArray();
+	}
 
 }

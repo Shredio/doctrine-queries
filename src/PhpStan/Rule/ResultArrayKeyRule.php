@@ -11,8 +11,8 @@ use Shredio\DoctrineQueries\Analysis\DoctrineQueriesAnalyzer;
 use Shredio\DoctrineQueries\PhpStan\PhpStanAnalyzerFactory;
 
 /**
- * Reports findPairsBy()->asArray() and findIndexedBy()->asArray() whose key can be NULL or a value PHP arrays
- * do not accept as a key (e.g. an enum or a date hydrated by ArrayQueries), asArray() throws on such a row.
+ * Reports asArray() of findPairsBy(), findIndexedBy() and the grouped aggregations (countGroupedBy(), sumGroupedBy(),
+ * minGroupedBy(), maxGroupedBy()) whose key can be NULL or a value PHP arrays do not accept as a key (e.g. an enum or a date hydrated by ArrayQueries), asArray() throws on such a row.
  *
  * Only calls chained directly on the finder (optionally through setLimit() and setOffset()) are checked,
  * a result stored in a variable is not followed. yield() is never reported, it accepts any key.

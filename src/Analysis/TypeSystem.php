@@ -176,6 +176,25 @@ interface TypeSystem
 	public function arrayKey(): object;
 
 	/**
+	 * @return TType
+	 */
+	public function float(): object;
+
+	/**
+	 * A string holding a number, e.g. '12.50'.
+	 *
+	 * @return TType
+	 */
+	public function numericString(): object;
+
+	/**
+	 * The integers from $min to $max, null for no limit, e.g. intRange(1, null) is positive-int.
+	 *
+	 * @return TType
+	 */
+	public function intRange(?int $min, ?int $max): object;
+
+	/**
 	 * @param TType $type
 	 * @return TType
 	 */

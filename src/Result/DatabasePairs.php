@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries\Result;
 
+use Closure;
 use Doctrine\ORM\Query;
 use Shredio\DoctrineQueries\Exception\InvalidResultKeyException;
 
@@ -17,11 +18,13 @@ final readonly class DatabasePairs
 
 	/**
 	 * @param Query<int, array{ k: TKey, v: TValue }> $query
+	 * @param (Closure(mixed): TValue)|null $convertValue Converts the fetched values, e.g. a count a driver returns as a string
 	 */
 	public function __construct(
 		private Query $query,
 		private string $keyField,
 		private bool $sameKeyAsValue = false,
+		private ?Closure $convertValue = null,
 	)
 	{
 	}
@@ -75,7 +78,9 @@ final readonly class DatabasePairs
 		$key = $this->sameKeyAsValue ? self::ValueColumn : self::KeyColumn;
 
 		foreach (QueryResultIterator::iterate($this->query) as $row) {
-			yield $row[$key] => $row[self::ValueColumn]; // @phpstan-ignore-line
+			$value = $row[self::ValueColumn];
+
+			yield $row[$key] => $this->convertValue === null ? $value : ($this->convertValue)($value); // @phpstan-ignore-line
 		}
 	}
 

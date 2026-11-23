@@ -367,14 +367,14 @@ $userOptions = $queries->arrays->findPairsBy(User::class, 'id', 'name')->asArray
 // Returns: [1 => 'John', 2 => 'Jane', ...]
 ```
 
-PHP arrays accept only integers and strings as keys, so `asArray()` of `findPairsBy()` and `findIndexedBy()` throws an `InvalidResultKeyException` for a row whose key is `NULL` or an object (e.g. an enum or a date hydrated by `$queries->arrays`). Exclude `NULL` keys with the criteria, use `$queries->scalars` for the database value of an object, or iterate over `yield()`, which returns any key as it is:
+PHP arrays accept only integers and strings as keys, so `asArray()` of `findPairsBy()`, `findIndexedBy()` and the grouped aggregations (`countGroupedBy()`, `sumGroupedBy()`, `minGroupedBy()`, `maxGroupedBy()`) throws an `InvalidResultKeyException` for a row whose key is `NULL` or an object (e.g. an enum or a date hydrated by `$queries->arrays`). Exclude `NULL` keys with the criteria, use `$queries->scalars` for the database value of an object, or iterate over `yield()`, which returns any key as it is:
 
 ```php
 // Roles are optional, authors without one would have a NULL key
 $authorsByRole = $queries->scalars->findPairsBy(Author::class, 'role.id', 'name', ['role.id !=' => null])->asArray();
 ```
 
-Methods reading a single field (`findColumnValuesBy()`, `findSingleColumnValueBy()`, the key and value of `findPairsBy()`, the index field of `findIndexedBy()` and the field of `countBy()`) throw a `MultipleFieldSelectionException` for a wildcard such as `'*'` or `'author.**'`.
+Methods reading a single field (`findColumnValuesBy()`, `findSingleColumnValueBy()`, the key and value of `findPairsBy()`, the index field of `findIndexedBy()`, the field of `countBy()` and the group and the field of `countGroupedBy()` and of the other aggregations) throw a `MultipleFieldSelectionException` for a wildcard such as `'*'` or `'author.**'`.
 
 ### Column Values
 
@@ -476,6 +476,48 @@ $postsWithActiveAuthors = $queries->countBy(
 );
 ```
 
+### Counts per Value
+
+`countGroupedBy()` counts the entities for each value of a field or a to-one association in a single query, instead of one `countBy()` per value:
+
+```php
+// [commentId => number of replies]
+$replyCounts = $queries->countGroupedBy(Comment::class, 'parent', ['parent' => $commentIds])->asArray();
+
+// A comment without replies is missing in the result, it is not counted as 0
+$replyCount = $replyCounts[$commentId] ?? 0;
+
+// By a field of a related entity, with the same options as countBy()
+$postsByAuthorStatus = $queries->countGroupedBy(Post::class, 'author.status', ['published' => true], joinConfig: 'inner')->asArray();
+
+// Count the values of a field (without NULL) instead of the entities, such a count can be 0
+$publishedPostsByAuthor = $queries->countGroupedBy(Post::class, 'author', field: 'publishedAt')->asArray();
+```
+
+The keys are database values as in `$queries->scalars` (the identifier for an association), so a date or an enum can be a key. The groups are returned in no particular order. A `NULL` key is handled as in [Key-Value Pairs](#key-value-pairs): exclude it with the criteria, e.g. `['parent !=' => null]`, or iterate over `yield()`.
+
+### Sum, Minimum and Maximum
+
+```php
+// Sum of a field, null when no entity matches or all the values are NULL
+$totalViews = $queries->sumBy(Article::class, 'views', ['author' => $authorId]) ?? 0;
+
+// Lowest and highest value, NULL values are skipped
+$firstPublishedAt = $queries->minBy(Article::class, 'publishedAt', ['author' => $authorId]);
+$lastPosition = $queries->maxBy(Ticker::class, 'position');
+
+// For each value of a field or a to-one association, as countGroupedBy()
+$viewsByAuthor = $queries->sumGroupedBy(Article::class, 'views', 'author', ['author' => $authorIds])->asArray();
+$lastPublishedAtByAuthor = $queries->maxGroupedBy(Article::class, 'publishedAt', 'author')->asArray();
+```
+
+The databases return aggregations in types of their own, e.g. MySQL sums integers to a decimal string and Doctrine does not convert the result of a function. The methods return the same types on every database:
+
+- `sumBy()` returns an integer for an integer field, a numeric string for a decimal field and a float for a float field. Other fields cannot be summed. A sum of an integer field that does not fit into a PHP integer throws an `AggregationOverflowException`.
+- `minBy()` and `maxBy()` return a value of the field converted by its type, as `$queries->arrays` returns a selected field: a date object for a date, an enum for an enum field.
+
+A field of a related entity can be aggregated too (`'author.rating'`, `'comments.likes'`), an association itself cannot. The keys of the grouped variants are database values and a value no entity matches is missing in the result, as in `countGroupedBy()`. The aggregation of a group is `null` only when all its values are `NULL`.
+
 ## Deletion Operations
 
 ```php
@@ -515,7 +557,8 @@ This provides:
 - Detection of options passed as positional arguments (`orderBy`, `select`, `pagination`, `joinConfig`)
 - Detection of wildcards passed where a single field is expected, e.g. `findColumnValuesBy(User::class, '*')`
 - Detection of sub-queries selecting more than one column
-- Detection of `findPairsBy()->asArray()` and `findIndexedBy()->asArray()` whose key can be `NULL` or is not an integer or a string, see [Key-Value Pairs](#key-value-pairs). Only calls chained directly on the finder are checked, a result stored in a variable first is not followed.
+- Detection of sums of fields that are not numbers and of aggregated associations, e.g. `sumBy(User::class, 'name')`
+- Detection of `asArray()` of `findPairsBy()`, `findIndexedBy()` and the grouped aggregations (e.g. `countGroupedBy()`) whose key can be `NULL` or is not an integer or a string, see [Key-Value Pairs](#key-value-pairs). Only calls chained directly on the finder are checked, a result stored in a variable first is not followed.
 
 Doctrine does not convert scalar results (`$queries->scalars`, and `IDENTITY()` of associations in `$queries->arrays`), so their PHP types depend on the database driver. The extension infers them for the driver of the connection returned by phpstan-doctrine's `objectManagerLoader`, including `PDO::ATTR_STRINGIFY_FETCHES`. For example a `decimal` column is `float|int` on `pdo_sqlite` but `numeric-string` on `pdo_mysql` and `mysqli`, so configure the loader with the same driver and options as the application. Criteria narrow the inferred type only when the database returns the value in the form it was compared in, e.g. `['name' => 'John']` does not narrow `name` to `'John'` on MySQL, whose default collations compare case-insensitively.
 
@@ -569,11 +612,8 @@ $users = $queries->arrays->findBy(
     select: ['id', 'name', 'email', 'created_at']
 )->asArray();
 
-// Get user count by status
-$statusCounts = [];
-foreach (['active', 'inactive', 'banned'] as $status) {
-    $statusCounts[$status] = $queries->countBy(User::class, ['status' => $status]);
-}
+// Get user count by status in a single query, a status without users is missing
+$statusCounts = $queries->countGroupedBy(User::class, 'status')->asArray();
 
 // Get recent user emails for newsletter
 $recentEmails = $queries->scalars->findColumnValuesBy(

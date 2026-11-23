@@ -121,6 +121,10 @@ joinConfig: ['author.role' => 'left'] // LEFT JOIN nested relation
 
 // Utilities
 $queries->countBy($entity, $criteria)
+$queries->countGroupedBy($entity, $groupBy, $criteria)->asArray() // [value => count] in one query, keys are database values, a value without entities is missing: $counts[$key] ?? 0
+$queries->sumBy($entity, $field, $criteria) // int for an integer field, numeric-string for a decimal, float for a float; null for no value
+$queries->minBy($entity, $field, $criteria) // maxBy(): converted by the field type (date object, enum), null for no value
+$queries->sumGroupedBy($entity, $field, $groupBy, $criteria)->asArray() // also minGroupedBy(), maxGroupedBy(): [value => aggregation]
 $queries->existsBy($entity, $criteria)  
 $queries->deleteBy($entity, $criteria) // no criteria on relations ('author.name'), use ['author' => $queries->subQuery(...)]
 
@@ -141,7 +145,7 @@ $queries->subQuery($entity, $criteria, select: ['id']) // has to select exactly 
 ->findPairsBy(User::class, 'id', 'name')->asArray()
 // Returns: [1 => 'John', 2 => 'Jane']
 
-// asArray() of findPairsBy()/findIndexedBy() throws InvalidResultKeyException for a NULL or object key:
+// asArray() of findPairsBy()/findIndexedBy()/countGroupedBy()/sumGroupedBy()/minGroupedBy()/maxGroupedBy() throws InvalidResultKeyException for a NULL or object key:
 // exclude NULL with ['field !=' => null], use scalars for database values, or iterate over yield()
 // A wildcard ('*', 'author.**') where a single field is expected throws MultipleFieldSelectionException
 ```

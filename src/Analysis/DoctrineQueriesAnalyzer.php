@@ -97,7 +97,7 @@ final readonly class DoctrineQueriesAnalyzer
 	}
 
 	/**
-	 * Validates asArray() called on the result of findPairsBy() or findIndexedBy().
+	 * Validates asArray() called on the result of findPairsBy(), findIndexedBy() or a grouped aggregation, e.g. countGroupedBy().
 	 *
 	 * @param CallArguments<TType> $finderArguments
 	 * @return list<AnalysisError>

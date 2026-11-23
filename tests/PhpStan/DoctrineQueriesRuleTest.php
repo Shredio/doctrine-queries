@@ -549,6 +549,150 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 		]);
 	}
 
+	public function testCountGroupedBy(): void
+	{
+		$this->analyse([__DIR__ . '/Data/CountGroupedByRuleCases.php'], [
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - entity Tests\\Entity\\Article does not have a field or association named `$nonExistentKey`.',
+				23,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - entity Tests\\Entity\\Article has an invalid association path `auth`. The field `auth` is not an association.',
+				24,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - argument #2 (groupBy) must be a single field, the wildcard `author.*` selects more of them.',
+				25,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - `hashTags` of entity Tests\\Entity\\Article is a to-many association, use a field of the related entity instead, e.g. `hashTags.<field>`.',
+				26,
+			],
+			[
+				'Argument #2 must be a constant string representing a field name.',
+				27,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - entity Tests\\Entity\\Article does not have a field or association named `$nonExistentNamedKey`.',
+				28,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - entity Tests\\Entity\\Article does not have a field or association named `$nonExistentField`.',
+				33,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - criteria `id IN (1) OR e0.id =` uses an unsupported operator. Supported operators are: =, !=, <>, <, <=, >, >=, LIKE, NOT LIKE.',
+				34,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - entity Tests\\Entity\\Article does not have a field or association named `$nonExistentCountedField`.',
+				35,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - argument #4 (field) must be a single field, the wildcard `*` selects more of them.',
+				36,
+			],
+			[
+				'Argument #6 (joinConfig) must be passed as a named argument. Position is not guaranteed.',
+				37,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - entity Tests\\Entity\\Article has an invalid association in root entity. The field `auth` is not an association.',
+				38,
+			],
+			[
+				'The entity class `NonExistentEntity` does not exist or is not managed by Doctrine.',
+				39,
+			],
+		]);
+	}
+
+	public function testAggregations(): void
+	{
+		$this->analyse([__DIR__ . '/Data/AggregationRuleCases.php'], [
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - the field `label` of entity Tests\\Entity\\TypedValues has the type `string` and cannot be summed, only integer, decimal and float fields can.',
+				30,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - the field `day` of entity Tests\\Entity\\TypedValues has the type `date_immutable` and cannot be summed, only integer, decimal and float fields can.',
+				31,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumGroupedBy() - the field `title` of entity Tests\\Entity\\Article has the type `string` and cannot be summed, only integer, decimal and float fields can.',
+				32,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - `author` of entity Tests\\Entity\\Article is an association and cannot be aggregated, use a field of the related entity instead, e.g. `author.<field>`.',
+				33,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::minBy() - `author` of entity Tests\\Entity\\Article is an association and cannot be aggregated, use a field of the related entity instead, e.g. `author.<field>`.',
+				34,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::maxGroupedBy() - `author.role` of entity Tests\\Entity\\Article is an association and cannot be aggregated, use a field of the related entity instead, e.g. `author.role.<field>`.',
+				35,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::maxBy() - `hashTags` of entity Tests\\Entity\\Article is a to-many association, use a field of the related entity instead, e.g. `hashTags.<field>`.',
+				36,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::minBy() - entity Tests\\Entity\\Article does not have a field or association named `$nonExistentField`.',
+				37,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - entity Tests\\Entity\\Article has an invalid association path `auth`. The field `auth` is not an association.',
+				38,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::maxBy() - argument #2 (field) must be a single field, the wildcard `*` selects more of them.',
+				39,
+			],
+			[
+				'Argument #2 must be a constant string representing a field name.',
+				40,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumGroupedBy() - entity Tests\\Entity\\Article does not have a field or association named `$nonExistentKey`.',
+				45,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::minGroupedBy() - argument #3 (groupBy) must be a single field, the wildcard `author.*` selects more of them.',
+				46,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::maxGroupedBy() - `hashTags` of entity Tests\\Entity\\Article is a to-many association, use a field of the related entity instead, e.g. `hashTags.<field>`.',
+				47,
+			],
+			[
+				'Argument #3 must be a constant string representing a field name.',
+				48,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - entity Tests\\Entity\\Article does not have a field or association named `$nonExistentCriteria`.',
+				49,
+			],
+			[
+				'Argument #4 (joinConfig) must be passed as a named argument. Position is not guaranteed.',
+				50,
+			],
+			[
+				'Argument #5 (joinConfig) must be passed as a named argument. Position is not guaranteed.',
+				51,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::minBy() - entity Tests\\Entity\\Article has an invalid association in root entity. The field `auth` is not an association.',
+				52,
+			],
+			[
+				'The entity class `NonExistentEntity` does not exist or is not managed by Doctrine.',
+				53,
+			],
+		]);
+	}
+
 	/**
 	 * @return string[]
 	 */

@@ -3,12 +3,16 @@
 namespace Shredio\DoctrineQueries\PhpStan;
 
 use LogicException;
+use PHPStan\Type\Accessory\AccessoryNumericStringType;
 use PHPStan\Type\Constant\ConstantArrayType;
 use PHPStan\Type\Constant\ConstantArrayTypeBuilder;
 use PHPStan\Type\Constant\ConstantIntegerType;
 use PHPStan\Type\Constant\ConstantStringType;
+use PHPStan\Type\FloatType;
 use PHPStan\Type\Generic\GenericObjectType;
+use PHPStan\Type\IntegerRangeType;
 use PHPStan\Type\IntegerType;
+use PHPStan\Type\IntersectionType;
 use PHPStan\Type\MixedType;
 use PHPStan\Type\NeverType;
 use PHPStan\Type\NullType;
@@ -183,6 +187,21 @@ final readonly class PhpStanTypeSystem implements TypeSystem
 	public function arrayKey(): Type
 	{
 		return new UnionType([new StringType(), new IntegerType()]);
+	}
+
+	public function float(): Type
+	{
+		return new FloatType();
+	}
+
+	public function numericString(): Type
+	{
+		return new IntersectionType([new StringType(), new AccessoryNumericStringType()]);
+	}
+
+	public function intRange(?int $min, ?int $max): Type
+	{
+		return IntegerRangeType::fromInterval($min, $max);
 	}
 
 	public function addNull(object $type): Type

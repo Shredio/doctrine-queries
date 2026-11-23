@@ -2,12 +2,15 @@
 
 namespace Shredio\DoctrineQueries\Analysis;
 
+use Shredio\DoctrineQueries\Aggregation\AggregateFunction;
+use Shredio\DoctrineQueries\Aggregation\SumKind;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
 use Shredio\DoctrineQueries\DoctrineQueries;
 use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
 use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
 use Shredio\DoctrineQueries\Exception\InvalidSelectAliasException;
 use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
+use Shredio\DoctrineQueries\Exception\UnsupportedFieldTypeException;
 use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 use Shredio\DoctrineQueries\Select\Field;
 use Shredio\DoctrineQueries\Select\FieldSelectType;
@@ -217,7 +220,65 @@ final readonly class QueryCallValidator
 		$error = $this->validateField($call, 'field', $field);
 		if ($error !== null) {
 			yield $error;
+
+			return;
 		}
+
+		$aggregateFunction = QueryMethods::getAggregateFunction($call->className, $call->methodName);
+		if ($argumentName === 'field' && $aggregateFunction !== null) {
+			$error = $this->validateAggregatedField($call, $aggregateFunction, $field);
+			if ($error !== null) {
+				yield $error;
+			}
+		}
+	}
+
+	/**
+	 * The aggregated field has to be a field, a summed one a number. The field exists, validateField() checked it.
+	 */
+	private function validateAggregatedField(ValidatedCall $call, AggregateFunction $function, Field $field): ?AnalysisError
+	{
+		$fieldMetadata = $call->queryMetadata->getFieldMetadata($field);
+
+		if ($fieldMetadata->isAssociation) {
+			return new AnalysisError(
+				sprintf(
+					'Call to method %s::%s() - `%s` of entity %s is an association and cannot be aggregated, use a field of the related entity instead, e.g. `%s.<field>`.',
+					$call->className,
+					$call->methodName,
+					$field->selector,
+					$call->entityClassName,
+					$field->selector,
+				),
+				'aggregatedAssociation',
+			);
+		}
+
+		if ($function !== AggregateFunction::Sum) {
+			return null;
+		}
+
+		try {
+			$doctrineType = $fieldMetadata->getFieldType()->type;
+		} catch (UnsupportedFieldTypeException) {
+			return null;
+		}
+
+		if (SumKind::canBeSummed($doctrineType) !== false) {
+			return null; // also a type that is not registered here, it is not known
+		}
+
+		return new AnalysisError(
+			sprintf(
+				'Call to method %s::%s() - the field `%s` of entity %s has the type `%s` and cannot be summed, only integer, decimal and float fields can.',
+				$call->className,
+				$call->methodName,
+				$field->selector,
+				$call->entityClassName,
+				$doctrineType,
+			),
+			'unsupportedSum',
+		);
 	}
 
 	/**

@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries\Analysis;
 
+use Shredio\DoctrineQueries\Aggregation\AggregateFunction;
 use Shredio\DoctrineQueries\DoctrineQueries;
 use Shredio\DoctrineQueries\Query\ArrayQueries;
 use Shredio\DoctrineQueries\Query\ObjectQueries;
@@ -32,6 +33,13 @@ final readonly class QueryMethods
 		],
 		DoctrineQueries::class => [
 			'countBy' => [1 => 'criteria', 2 => 'field', 4 => 'joinConfig'],
+			'countGroupedBy' => [1 => 'groupBy', 2 => 'criteria', 3 => 'field', 5 => 'joinConfig'],
+			'sumBy' => self::AggregationParameters,
+			'minBy' => self::AggregationParameters,
+			'maxBy' => self::AggregationParameters,
+			'sumGroupedBy' => self::GroupedAggregationParameters,
+			'minGroupedBy' => self::GroupedAggregationParameters,
+			'maxGroupedBy' => self::GroupedAggregationParameters,
 			'existsBy' => [1 => 'criteria'],
 			'existsManyBy' => [1 => 'values'],
 			'deleteBy' => [1 => 'criteria'],
@@ -46,6 +54,32 @@ final readonly class QueryMethods
 		ScalarQueries::class => QueryType::Scalar,
 		ArrayQueries::class => QueryType::Array,
 	];
+
+	/**
+	 * The aggregate function of each method of DoctrineQueries aggregating the values of a field.
+	 */
+	private const array AggregateFunctions = [
+		'sumBy' => AggregateFunction::Sum,
+		'minBy' => AggregateFunction::Min,
+		'maxBy' => AggregateFunction::Max,
+		'sumGroupedBy' => AggregateFunction::Sum,
+		'minGroupedBy' => AggregateFunction::Min,
+		'maxGroupedBy' => AggregateFunction::Max,
+	];
+
+	/**
+	 * The methods of DoctrineQueries returning an aggregation for each database value of the grouped field.
+	 */
+	private const array GroupedMethods = [
+		'countGroupedBy' => true,
+		'sumGroupedBy' => true,
+		'minGroupedBy' => true,
+		'maxGroupedBy' => true,
+	];
+
+	private const array AggregationParameters = [1 => 'field', 2 => 'criteria', 3 => 'joinConfig'];
+
+	private const array GroupedAggregationParameters = [1 => 'field', 2 => 'groupBy', 3 => 'criteria', 4 => 'joinConfig'];
 
 	private const array FieldQueriesParameters = [
 		'findBy' => [1 => 'criteria', 2 => 'orderBy', 3 => 'select', 4 => 'pagination', 5 => 'joinConfig'],
@@ -70,10 +104,31 @@ final readonly class QueryMethods
 	public static function hasReturnType(string $className, string $methodName): bool
 	{
 		if ($className === DoctrineQueries::class) {
-			return $methodName === 'existsManyBy';
+			return $methodName === 'existsManyBy' || isset(self::GroupedMethods[$methodName]) || isset(self::AggregateFunctions[$methodName]);
 		}
 
 		return isset(self::QueryTypes[$className], self::Parameters[$className][$methodName]);
+	}
+
+	/**
+	 * The function a method of DoctrineQueries aggregates the values of its field with, null for other methods.
+	 */
+	public static function getAggregateFunction(string $className, string $methodName): ?AggregateFunction
+	{
+		return $className === DoctrineQueries::class ? self::AggregateFunctions[$methodName] ?? null : null;
+	}
+
+	/**
+	 * The kind of the values the method returns for the fields, null when it returns no field.
+	 */
+	public static function getQueryType(string $className, string $methodName): ?QueryType
+	{
+		if ($className === DoctrineQueries::class) {
+			// the keys of the groups are database values
+			return isset(self::GroupedMethods[$methodName]) || isset(self::AggregateFunctions[$methodName]) ? QueryType::Scalar : null;
+		}
+
+		return isset(self::Parameters[$className][$methodName]) ? self::QueryTypes[$className] ?? null : null;
 	}
 
 }

@@ -15,15 +15,20 @@ use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use InvalidArgumentException;
 use LogicException;
+use Shredio\DoctrineQueries\Aggregation\AggregatedValueConverter;
+use Shredio\DoctrineQueries\Aggregation\AggregateFunction;
+use Shredio\DoctrineQueries\Aggregation\AggregationQuery;
 use Shredio\DoctrineQueries\Allocator\FieldAliasAllocator;
 use Shredio\DoctrineQueries\Allocator\ParameterCounter;
 use Shredio\DoctrineQueries\Criteria\AnyOf;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
 use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
+use Shredio\DoctrineQueries\Exception\UnsupportedAggregationException;
 use Shredio\DoctrineQueries\Join\JoinParser;
 use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 use Shredio\DoctrineQueries\Order\NullsLast;
 use Shredio\DoctrineQueries\Parameter\CriteriaParameterFactory;
+use Shredio\DoctrineQueries\Result\DatabasePairs;
 use Shredio\DoctrineQueries\Result\QueryResultIterator;
 use Shredio\DoctrineQueries\Select\Field;
 use Shredio\DoctrineQueries\Select\QueryType;
@@ -152,10 +157,14 @@ final readonly class SimplifiedQueryBuilderFactory
 
 	/**
 	 * Creates a query builder for counting entities by criteria.
-	 * 
+	 *
+	 * With $groupBy the entities are counted for each value of the field, the query selects the value
+	 * as DatabasePairs::KeyColumn and its count as DatabasePairs::ValueColumn.
+	 *
 	 * @param class-string $entity The entity class to count
 	 * @param array<array-key, mixed> $criteria Filtering criteria
 	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
+	 * @param string|null $groupBy The field or the to-one association to count by
 	 * @return QueryBuilder Query builder configured for counting
 	 */
 	public function createCount(
@@ -164,6 +173,7 @@ final readonly class SimplifiedQueryBuilderFactory
 		?string $field = null,
 		bool $distinct = false,
 		array|string $joinConfig = 'left',
+		?string $groupBy = null,
 	): QueryBuilder
 	{
 		$em = $this->getEntityManager($entity);
@@ -173,13 +183,16 @@ final readonly class SimplifiedQueryBuilderFactory
 		$qb = $em->createQueryBuilder();
 		$qb->from($entity, $metadata->getRootAlias());
 
-		// The counted field is resolved first, criteria on the to-many association it is reached through filter its rows.
+		// The counted field and the group key are resolved first, criteria on the to-many association they are reached
+		// through filter its rows.
 		if ($field !== null) {
 			$select = $metadata->getFieldToSelect(new Field($field));
 			$path = $metadata->getPathForField($select->metadata->field);
 		} else {
 			$path = sprintf('%s.%s', $metadata->rootAlias, $metadata->getSingleIdentifierField(false));
 		}
+
+		self::registerGroupKey($metadata, $groupBy);
 
 		$this->applyCriteria($qb, $criteria, $metadata, $joinConfig, self::getRowLevelPaths($metadata));
 
@@ -188,11 +201,73 @@ final readonly class SimplifiedQueryBuilderFactory
 			$distinct = $distinct || $metadata->hasToManyJoin();
 		}
 
-		$qb->select(sprintf('COUNT(%s%s)', $distinct ? 'DISTINCT ' : '', $path));
+		self::selectAggregation($qb, $metadata, sprintf('COUNT(%s%s)', $distinct ? 'DISTINCT ' : '', $path), $groupBy);
 
 		$this->applyJoins($qb, $metadata, $joinConfig);
 
 		return $qb;
+	}
+
+	/**
+	 * Creates a query builder aggregating the values of a field by criteria, together with the converter of its result.
+	 *
+	 * With $groupBy the values are aggregated for each value of the group field, the query selects the value
+	 * as DatabasePairs::KeyColumn and its aggregation as DatabasePairs::ValueColumn.
+	 *
+	 * @param class-string $entity The entity class to aggregate
+	 * @param array<array-key, mixed> $criteria Filtering criteria
+	 * @param array<string, 'left'|'inner'>|'left'|'inner' $joinConfig Join configurations (left is default)
+	 * @param string|null $groupBy The field or the to-one association to aggregate by
+	 *
+	 * @throws UnsupportedAggregationException
+	 */
+	public function createAggregation(
+		string $entity,
+		AggregateFunction $function,
+		string $field,
+		array $criteria = [],
+		array|string $joinConfig = 'left',
+		?string $groupBy = null,
+	): AggregationQuery
+	{
+		$em = $this->getEntityManager($entity);
+
+		$metadata = $this->createMetadata($em, $entity, QueryType::Scalar);
+
+		$qb = $em->createQueryBuilder();
+		$qb->from($entity, $metadata->getRootAlias());
+
+		// The aggregated field and the group key are resolved first, criteria on the to-many association they are reached
+		// through filter its rows.
+		$aggregatedField = $metadata->getFieldToSelect(new Field($field))->metadata;
+		$path = $metadata->getPathForField($aggregatedField->field);
+		$aggregation = sprintf('%s() of %s::$%s', $function->value, $entity, $field);
+
+		if ($aggregatedField->isAssociation) {
+			throw new UnsupportedAggregationException(sprintf(
+				'%s is not supported, "%s" is an association. Aggregate a field of the related entity instead, e.g. "%s.<field>".',
+				$aggregation,
+				$field,
+				$field,
+			));
+		}
+
+		$converter = new AggregatedValueConverter(
+			$function,
+			$aggregatedField->getFieldType(),
+			$em->getConnection()->getDatabasePlatform(),
+			$aggregation,
+		);
+
+		self::registerGroupKey($metadata, $groupBy);
+
+		$this->applyCriteria($qb, $criteria, $metadata, $joinConfig, self::getRowLevelPaths($metadata));
+
+		self::selectAggregation($qb, $metadata, sprintf('%s(%s)', $function->value, $path), $groupBy);
+
+		$this->applyJoins($qb, $metadata, $joinConfig);
+
+		return new AggregationQuery($qb, $converter);
 	}
 
 	/**
@@ -785,6 +860,42 @@ final readonly class SimplifiedQueryBuilderFactory
 		return $em->createQueryBuilder()
 			->select($select)
 			->from($entity, $metadata->rootAlias);
+	}
+
+	/**
+	 * Validates the group key and registers the joins it needs, before the criteria are applied.
+	 */
+	private static function registerGroupKey(QueryMetadata $metadata, ?string $groupBy): void
+	{
+		if ($groupBy !== null) {
+			$metadata->getPathForField($metadata->getFieldToSelect(new Field($groupBy))->metadata->field);
+		}
+	}
+
+	/**
+	 * Selects the aggregation, with $groupBy for each value of the group key: the value as DatabasePairs::KeyColumn
+	 * (the identifier for an association) and its aggregation as DatabasePairs::ValueColumn.
+	 */
+	private static function selectAggregation(QueryBuilder $qb, QueryMetadata $metadata, string $aggregation, ?string $groupBy): void
+	{
+		if ($groupBy === null) {
+			$qb->select($aggregation);
+
+			return;
+		}
+
+		$groupKey = $metadata->getFieldMetadata(new Field($groupBy));
+		$groupKeyPath = $metadata->getPathForField($groupKey->field);
+
+		$qb->select(
+			sprintf('%s AS %s', $groupKey->isAssociation ? sprintf('IDENTITY(%s)', $groupKeyPath) : $groupKeyPath, DatabasePairs::KeyColumn),
+			sprintf('%s AS %s', $aggregation, DatabasePairs::ValueColumn),
+		);
+		$qb->groupBy($groupKeyPath);
+
+		if ($metadata->hasToManyJoin()) {
+			$qb->setHint(QueryResultIterator::MaterializeHint, true);
+		}
 	}
 
 	/**

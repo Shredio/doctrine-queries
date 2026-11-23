@@ -16,6 +16,12 @@ services:
 		tags:
 			- phpstan.broker.dynamicMethodReturnTypeExtension
 	-
+		class: Shredio\DoctrineQueries\PhpStan\TypeExtension\DoctrineQueriesDynamicReturnTypeExtension
+		arguments:
+			- @Shredio\DoctrineQueries\PhpStan\PhpStanAnalyzerFactory
+		tags:
+			- phpstan.broker.dynamicMethodReturnTypeExtension
+	-
 		class: Shredio\DoctrineQueries\PhpStan\PhpStanAnalyzerFactory
 	-
 		factory: PHPStan\Type\Doctrine\Descriptors\ReflectionDescriptor('Tests\Doctrine\SymbolType')

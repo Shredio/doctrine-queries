@@ -7,8 +7,8 @@ use Shredio\DoctrineQueries\Query\ScalarQueries;
 use Shredio\DoctrineQueries\Select\QueryType;
 
 /**
- * Reports findPairsBy()->asArray() and findIndexedBy()->asArray() whose key can be NULL or a value PHP arrays
- * do not accept as a key (e.g. an enum or a date hydrated by ArrayQueries), asArray() throws on such a row.
+ * Reports asArray() of findPairsBy(), findIndexedBy() and the grouped aggregations (countGroupedBy(), sumGroupedBy(),
+ * minGroupedBy(), maxGroupedBy()) whose key can be NULL or a value PHP arrays do not accept as a key (e.g. an enum or a date hydrated by ArrayQueries), asArray() throws on such a row.
  *
  * @template TType of object
  * @internal
@@ -22,6 +22,10 @@ final readonly class ResultArrayKeyValidator
 	private const array KeyParameters = [
 		'findPairsBy' => 'key',
 		'findIndexedBy' => 'indexField',
+		'countGroupedBy' => 'groupBy',
+		'sumGroupedBy' => 'groupBy',
+		'minGroupedBy' => 'groupBy',
+		'maxGroupedBy' => 'groupBy',
 	];
 
 	/**
@@ -37,7 +41,7 @@ final readonly class ResultArrayKeyValidator
 
 	public static function isFinder(string $finderClass, string $finderMethod): bool
 	{
-		return isset(self::KeyParameters[$finderMethod], QueryMethods::QueryTypes[$finderClass]);
+		return isset(self::KeyParameters[$finderMethod]) && QueryMethods::getQueryType($finderClass, $finderMethod) !== null;
 	}
 
 	/**
@@ -47,7 +51,7 @@ final readonly class ResultArrayKeyValidator
 	public function validate(string $finderClass, string $finderMethod, CallArguments $finderArguments): array
 	{
 		$keyParameter = self::KeyParameters[$finderMethod] ?? null;
-		$queryType = QueryMethods::QueryTypes[$finderClass] ?? null;
+		$queryType = QueryMethods::getQueryType($finderClass, $finderMethod);
 		$parameters = QueryMethods::getParameters($finderClass, $finderMethod);
 		if ($keyParameter === null || $queryType === null || $parameters === null) {
 			return [];

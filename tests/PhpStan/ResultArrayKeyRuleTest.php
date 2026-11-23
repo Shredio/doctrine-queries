@@ -116,6 +116,54 @@ final class ResultArrayKeyRuleTest extends RuleTestCase
 		]);
 	}
 
+	public function testCountGroupedBy(): void
+	{
+		$this->analyse([__DIR__ . '/Data/CountGroupedByResultArrayKeyRuleCases.php'], [
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - the key `symbol` can be NULL and asArray() throws an exception for such a row. Exclude the rows with the criteria [\'symbol !=\' => null], or iterate over yield().',
+				17,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - the key `author.role.name` can be NULL and asArray() throws an exception for such a row. Exclude the rows with the criteria [\'author.role.name !=\' => null], or iterate over yield().',
+				18,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - the key `author` can be NULL and asArray() throws an exception for such a row. Exclude the rows with the criteria [\'author !=\' => null], or iterate over yield().',
+				19,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - the key `author.role` can be NULL and asArray() throws an exception for such a row. Exclude the rows with the criteria [\'author.role !=\' => null], or iterate over yield().',
+				20,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - the key `ratio` is returned as float, but asArray() accepts only integers and strings as keys. Iterate over yield() to keep the keys as they are.',
+				25,
+			],
+		]);
+	}
+
+	public function testAggregations(): void
+	{
+		$this->analyse([__DIR__ . '/Data/AggregationResultArrayKeyRuleCases.php'], [
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumGroupedBy() - the key `symbol` can be NULL and asArray() throws an exception for such a row. Exclude the rows with the criteria [\'symbol !=\' => null], or iterate over yield().',
+				16,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::minGroupedBy() - the key `author.role.name` can be NULL and asArray() throws an exception for such a row. Exclude the rows with the criteria [\'author.role.name !=\' => null], or iterate over yield().',
+				17,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::maxGroupedBy() - the key `author.role` can be NULL and asArray() throws an exception for such a row. Exclude the rows with the criteria [\'author.role !=\' => null], or iterate over yield().',
+				18,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumGroupedBy() - the key `ratio` is returned as float, but asArray() accepts only integers and strings as keys. Iterate over yield() to keep the keys as they are.',
+				23,
+			],
+		]);
+	}
+
 	/**
 	 * @return string[]
 	 */

@@ -4,6 +4,7 @@ namespace Shredio\DoctrineQueries\Analysis;
 
 use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
 use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
+use Shredio\DoctrineQueries\Exception\UnsupportedFieldTypeException;
 use Shredio\DoctrineQueries\Join\JoinParser;
 use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 use Shredio\DoctrineQueries\Select\Field;
@@ -11,7 +12,7 @@ use Shredio\DoctrineQueries\Select\QueryType;
 use Shredio\DoctrineQueries\Select\SelectParser;
 
 /**
- * A call of a method of ScalarQueries or ArrayQueries whose result type is resolved.
+ * A call of a method whose result type is resolved from the fields it returns.
  *
  * @template TType of object
  * @internal
@@ -70,6 +71,16 @@ final readonly class QueryCallContext
 	}
 
 	/**
+	 * Whether the argument is not passed or is certainly null.
+	 */
+	public function isArgumentOmitted(string $parameterName): bool
+	{
+		$type = $this->getArgumentType($parameterName);
+
+		return $type === null || $this->types->isNull($type);
+	}
+
+	/**
 	 * The fields passed as constant strings in the argument, more of them when it is one of several strings.
 	 *
 	 * @return list<string> None when the field is not known
@@ -86,14 +97,15 @@ final readonly class QueryCallContext
 	 * of several strings. Null when the field is not known.
 	 *
 	 * @param list<list<CriteriaItem<TType>>> $criteriaVariants
+	 * @param QueryType|null $queryType The kind of the returned value when it differs from the one of the call
 	 * @return TType|null
 	 */
-	public function getFieldArgumentType(string $parameterName, array $criteriaVariants): ?object
+	public function getFieldArgumentType(string $parameterName, array $criteriaVariants, ?QueryType $queryType = null): ?object
 	{
 		$fieldTypes = [];
 
 		foreach ($this->getFieldArgumentNames($parameterName) as $field) {
-			$fieldType = $this->getFieldType($field, $criteriaVariants);
+			$fieldType = $this->getFieldType($field, $criteriaVariants, $queryType);
 			if ($fieldType === null) {
 				return null;
 			}
@@ -105,10 +117,36 @@ final readonly class QueryCallContext
 	}
 
 	/**
+	 * The Doctrine types of the fields passed as constant strings in the argument, e.g. 'integer'.
+	 *
+	 * @return list<string>|null Null when a field is not known or is not a field with a type, e.g. an association
+	 */
+	public function getFieldArgumentDoctrineTypes(string $parameterName): ?array
+	{
+		$doctrineTypes = [];
+
+		foreach ($this->getFieldArgumentNames($parameterName) as $field) {
+			try {
+				$fieldMetadata = $this->queryMetadata->getFieldMetadata(new Field($field));
+				if ($fieldMetadata->isAssociation) {
+					return null; // reported by the validation
+				}
+
+				$doctrineTypes[] = $fieldMetadata->getFieldType()->type;
+			} catch (FieldNotExistsException|InvalidAssociationPathException|UnsupportedFieldTypeException) {
+				return null; // reported by the validation
+			}
+		}
+
+		return $doctrineTypes === [] ? null : $doctrineTypes;
+	}
+
+	/**
 	 * @param list<list<CriteriaItem<TType>>> $criteriaVariants
+	 * @param QueryType|null $queryType The kind of the returned value when it differs from the one of the call
 	 * @return TType|null Null when the field does not exist
 	 */
-	public function getFieldType(string $field, array $criteriaVariants): ?object
+	public function getFieldType(string $field, array $criteriaVariants, ?QueryType $queryType = null): ?object
 	{
 		try {
 			$fieldMetadata = $this->queryMetadata->getFieldMetadata(new Field($field));
@@ -118,7 +156,7 @@ final readonly class QueryCallContext
 
 		return $this->fieldTypeResolver->resolve(
 			$fieldMetadata,
-			$this->queryType,
+			$queryType ?? $this->queryType,
 			$criteriaVariants,
 			$this->isInnerJoin($this->getJoinConfig(), $fieldMetadata->field),
 		);

@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries\Analysis;
 
+use Shredio\DoctrineQueries\Aggregation\SumKind;
 use Shredio\DoctrineQueries\Criteria\AnyOf;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
 use Shredio\DoctrineQueries\DoctrineQueries;
@@ -63,11 +64,11 @@ final readonly class QueryReturnTypeResolver
 			return null;
 		}
 
-		if ($calledOnClass === DoctrineQueries::class) {
+		if ($calledOnClass === DoctrineQueries::class && $methodName === 'existsManyBy') {
 			return $this->resolveExistsManyBy($entityClassName, $arguments);
 		}
 
-		$queryType = QueryMethods::QueryTypes[$calledOnClass] ?? null;
+		$queryType = QueryMethods::getQueryType($calledOnClass, $methodName);
 		$parameters = QueryMethods::getParameters($calledOnClass, $methodName);
 		if ($queryType === null || $parameters === null) {
 			return null;
@@ -99,6 +100,11 @@ final readonly class QueryReturnTypeResolver
 			'findSingleColumnValueBy' => $this->types->addNull( // always nullable
 				$context->getFieldArgumentType('field', $criteriaVariants) ?? $this->types->mixed(),
 			),
+			'countGroupedBy' => $this->createGroupedResults($context, $criteriaVariants, $this->getGroupedCountType($context, $criteriaVariants)),
+			'sumBy' => $this->types->addNull($this->getSumType($context)), // null for no entity
+			'minBy', 'maxBy' => $this->types->addNull($this->getAggregatedFieldType($context, $criteriaVariants)),
+			'sumGroupedBy' => $this->createGroupedResults($context, $criteriaVariants, $this->getGroupedSumType($context, $criteriaVariants)),
+			'minGroupedBy', 'maxGroupedBy' => $this->createGroupedResults($context, $criteriaVariants, $this->getAggregatedFieldType($context, $criteriaVariants)),
 			default => null,
 		};
 	}
@@ -231,6 +237,100 @@ final readonly class QueryReturnTypeResolver
 		return $this->types->genericObject(DatabaseExistenceResults::class, [
 			$valueTypes === null ? $this->types->never() : $this->types->constantArray($valueTypes),
 		]);
+	}
+
+	/**
+	 * The pairs of the database values of the group field and their aggregations.
+	 *
+	 * @param QueryCallContext<TType> $context
+	 * @param list<list<CriteriaItem<TType>>> $criteriaVariants
+	 * @param TType $valueType
+	 * @return TType
+	 */
+	private function createGroupedResults(QueryCallContext $context, array $criteriaVariants, object $valueType): object
+	{
+		return $this->types->genericObject(DatabasePairs::class, [
+			$this->toPairsKeyType($context->getFieldArgumentType('groupBy', $criteriaVariants)),
+			$valueType,
+		]);
+	}
+
+	/**
+	 * The sum by the kind of the summed field, see SumKind. Without null, which the sum of no value is.
+	 *
+	 * @param QueryCallContext<TType> $context
+	 * @return TType
+	 */
+	private function getSumType(QueryCallContext $context): object
+	{
+		$sumTypes = [];
+
+		foreach ($context->getFieldArgumentDoctrineTypes('field') ?? [] as $doctrineType) {
+			$sumType = match (SumKind::fromDoctrineType($doctrineType)) {
+				SumKind::Integer => $this->types->intRange(null, null),
+				SumKind::Decimal => $this->types->numericString(),
+				SumKind::Float => $this->types->float(),
+				null => null,
+			};
+
+			if ($sumType === null) {
+				$sumTypes = [];
+
+				break; // reported by the validation
+			}
+
+			$sumTypes[] = $sumType;
+		}
+
+		// the declared type when the field is not known
+		return $this->types->union(...($sumTypes !== [] ? $sumTypes : [$this->types->intRange(null, null), $this->types->float(), $this->types->numericString()]));
+	}
+
+	/**
+	 * A group has an entity, so its sum is null only when the summed field can be NULL.
+	 *
+	 * @param QueryCallContext<TType> $context
+	 * @param list<list<CriteriaItem<TType>>> $criteriaVariants
+	 * @return TType
+	 */
+	private function getGroupedSumType(QueryCallContext $context, array $criteriaVariants): object
+	{
+		$sumType = $this->getSumType($context);
+		$fieldType = $context->getFieldArgumentType('field', $criteriaVariants);
+
+		return $fieldType === null || $this->types->canBeNull($fieldType) ? $this->types->addNull($sumType) : $sumType;
+	}
+
+	/**
+	 * MIN() and MAX() return a value of the field, converted by its type as a field selected by ArrayQueries is.
+	 * A nullable field is null when all the aggregated values are NULL.
+	 *
+	 * @param QueryCallContext<TType> $context
+	 * @param list<list<CriteriaItem<TType>>> $criteriaVariants
+	 * @return TType
+	 */
+	private function getAggregatedFieldType(QueryCallContext $context, array $criteriaVariants): object
+	{
+		return $context->getFieldArgumentType('field', $criteriaVariants, QueryType::Array) ?? $this->types->mixed();
+	}
+
+	/**
+	 * A group exists only for a counted entity, so its count is positive. COUNT() of a field skips NULL values,
+	 * a group whose values are all NULL has the count 0.
+	 *
+	 * @param QueryCallContext<TType> $context
+	 * @param list<list<CriteriaItem<TType>>> $criteriaVariants
+	 * @return TType
+	 */
+	private function getGroupedCountType(QueryCallContext $context, array $criteriaVariants): object
+	{
+		if ($context->isArgumentOmitted('field')) {
+			return $this->types->intRange(1, null);
+		}
+
+		$fieldType = $context->getFieldArgumentType('field', $criteriaVariants);
+
+		return $this->types->intRange($fieldType === null || $this->types->canBeNull($fieldType) ? 0 : 1, null);
 	}
 
 	/**
