@@ -58,6 +58,9 @@ $names = $queries->scalars->findColumnValuesBy(User::class, 'name')->asArray();
 // of the referenced identifier, the values of a binary column (BINARY(16) UUID) as binary
 ['portfolio' => $portfolioId, 'owner' => [$user, $anotherUserId]]
 
+// A date compared with a column of a date type is converted by the column type, alone or in a list: a DATE column
+// is compared with the date only, ['day >=' => new DateTimeImmutable('2026-01-01 10:00:00')] matches 2026-01-01 too
+
 // A null in a list is compared by IS NULL: active or no status / a status other than banned
 ['status' => ['active', null], 'role !=' => ['banned', null]]
 

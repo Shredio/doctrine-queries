@@ -290,6 +290,68 @@ final class CriteriaQueriesTest extends TestCase
 		$this->assertSame(1, $queries->deleteBy(TypedValues::class, ['day' => [$afternoon]]));
 	}
 
+	/**
+	 * The days 2021-01-01, 2021-01-02 and 2021-01-03 compared with the afternoon of the second one.
+	 *
+	 * @return iterable<string, array{non-empty-string, list<int>}>
+	 */
+	public static function provideDateComparisons(): iterable
+	{
+		yield 'equals' => ['day', [2]];
+		yield 'not equals' => ['day !=', [1, 3]];
+		yield 'greater than or equal' => ['day >=', [2, 3]];
+		yield 'greater than' => ['day >', [3]];
+		yield 'less than or equal' => ['day <=', [1, 2]];
+		yield 'less than' => ['day <', [1]];
+	}
+
+	/**
+	 * @param non-empty-string $criteriaKey
+	 * @param list<int> $expectedIds
+	 */
+	#[DataProvider('provideDateComparisons')]
+	public function testSingleDateIsConvertedByTheTypeOfTheColumn(string $criteriaKey, array $expectedIds): void
+	{
+		$em = $this->getEntityManager();
+		$em->persist(self::createTypedValues(1, day: '2021-01-01'));
+		$em->persist(self::createTypedValues(2, day: '2021-01-02'));
+		$em->persist(self::createTypedValues(3, day: '2021-01-03'));
+		$em->flush();
+		$queries = $this->createDoctrineQueries();
+		$findIds = static fn (mixed $value): array => $queries->scalars
+			->findColumnValuesBy(TypedValues::class, 'id', [$criteriaKey => $value], ['id' => SortDirection::Ascending])
+			->asArray();
+
+		$this->assertSame($expectedIds, $findIds(new DateTimeImmutable('2021-01-02 15:30:00')), 'A date column is compared with the date only.');
+		$this->assertSame($expectedIds, $findIds(new DateTime('2021-01-02 15:30:00')), 'A DateTime is converted for an immutable type too.');
+		$this->assertSame($expectedIds, $findIds('2021-01-02'), 'As the database value.');
+		$this->assertSame(count($expectedIds), $queries->countBy(TypedValues::class, [$criteriaKey => new DateTimeImmutable('2021-01-02 15:30:00')]));
+
+		if ($criteriaKey === 'day' || $criteriaKey === 'day !=') {
+			$this->assertSame($expectedIds, $findIds([new DateTimeImmutable('2021-01-02 15:30:00')]), 'As a list of the date.');
+		}
+	}
+
+	public function testSingleDateComparedWithDateTimeAndTimeColumns(): void
+	{
+		$em = $this->getEntityManager();
+		$em->persist(self::createTypedValues(1, day: '2021-01-01')); // the moment is 03:04:05 of the day
+		$em->persist(self::createTypedValues(2, day: '2021-01-02'));
+		$em->flush();
+		$queries = $this->createDoctrineQueries();
+		$findIds = static fn (array $criteria): array => $queries->scalars
+			->findColumnValuesBy(TypedValues::class, 'id', $criteria, ['id' => SortDirection::Ascending])
+			->asArray();
+
+		$this->assertSame([2], $findIds(['moment >' => new DateTimeImmutable('2021-01-02 03:04:04')]), 'A datetime column keeps the time.');
+		$this->assertSame([], $findIds(['moment >' => new DateTimeImmutable('2021-01-02 03:04:05')]));
+		$this->assertSame([1], $findIds(['moment <' => new DateTime('2021-01-02 03:04:05')]));
+		$this->assertSame([2], $findIds(['moment' => new DateTimeImmutable('2021-01-02 03:04:05')]));
+		$this->assertSame([1, 2], $findIds(['time' => new DateTimeImmutable('2030-05-06 03:04:05')]), 'A time column is compared with the time only.');
+		$this->assertSame([], $findIds(['time >' => new DateTime('2000-01-01 03:04:05')]));
+		$this->assertSame([1, 2], $findIds(['time >=' => new DateTime('2000-01-01 03:04:05')]));
+	}
+
 	public function testListOfUnsupportedObjectsIsRejected(): void
 	{
 		$this->persistFixtures();

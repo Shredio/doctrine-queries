@@ -10,6 +10,14 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
+use Doctrine\DBAL\Types\DateImmutableType;
+use Doctrine\DBAL\Types\DateTimeImmutableType;
+use Doctrine\DBAL\Types\DateTimeType;
+use Doctrine\DBAL\Types\DateTimeTzImmutableType;
+use Doctrine\DBAL\Types\DateTimeTzType;
+use Doctrine\DBAL\Types\DateType;
+use Doctrine\DBAL\Types\TimeImmutableType;
+use Doctrine\DBAL\Types\TimeType;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\MappingException;
@@ -26,12 +34,27 @@ use Shredio\DoctrineQueries\Select\Field;
  * Doctrine infers the type of a parameter from its PHP value alone. An object it does not know, the identifier of an
  * entity and the items of a list are bound as strings, so a value object of a custom DBAL type is bound by its
  * __toString() and a binary value as text. Such a parameter matches no row and raises no error. The type of the
- * compared column is known here, values Doctrine cannot bind by itself are converted and bound by it.
+ * compared column is known here, values Doctrine cannot bind by itself are converted and bound by it. So is a date
+ * compared with a column of a date type, Doctrine would bind it with the time of day whatever the column stores.
  *
  * @internal
  */
 final readonly class CriteriaParameterFactory
 {
+
+	/**
+	 * The DBAL types converting dates, the types of their variable formats extend them.
+	 */
+	private const array DateTypes = [
+		DateType::class,
+		DateImmutableType::class,
+		DateTimeType::class,
+		DateTimeImmutableType::class,
+		DateTimeTzType::class,
+		DateTimeTzImmutableType::class,
+		TimeType::class,
+		TimeImmutableType::class,
+	];
 
 	private function __construct()
 	{
@@ -69,7 +92,7 @@ final readonly class CriteriaParameterFactory
 
 		$databaseValue = self::replaceEntityByIdentifier($entityManager, $targetEntity, $value);
 
-		if (is_object($databaseValue) && !self::isBoundByDoctrine($databaseValue)) {
+		if (is_object($databaseValue) && !self::isBoundByDoctrine($databaseValue, $columnType)) {
 			$databaseValue = self::convertToDatabaseValue($columnType, $databaseValue, $platform);
 			if (is_object($databaseValue)) {
 				// The type of the column passes the object through, e.g. a Stringable compared with a string column.
@@ -153,10 +176,29 @@ final readonly class CriteriaParameterFactory
 
 	/**
 	 * Objects whose type Doctrine infers from the value itself, as it did before the type of the column was used.
+	 *
+	 * A date compared with a column of a date type is not one of them. Doctrine binds every date as a date with a time,
+	 * so a DATE column would be compared with the time of day too (2021-01-02 is not >= 2021-01-02 10:00:00) and
+	 * a TIME column with the date.
 	 */
-	private static function isBoundByDoctrine(object $value): bool
+	private static function isBoundByDoctrine(object $value, Type $columnType): bool
 	{
-		return $value instanceof BackedEnum || $value instanceof DateTimeInterface || $value instanceof DateInterval;
+		if ($value instanceof DateTimeInterface) {
+			return !self::convertsDates($columnType);
+		}
+
+		return $value instanceof BackedEnum || $value instanceof DateInterval;
+	}
+
+	private static function convertsDates(Type $columnType): bool
+	{
+		foreach (self::DateTypes as $dateType) {
+			if ($columnType instanceof $dateType) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private static function isBoundAsBinary(Type $columnType): bool

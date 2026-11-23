@@ -199,7 +199,7 @@ Supported operators are `=`, `!=`, `<>`, `<`, `<=`, `>`, `>=`, `LIKE` and `NOT L
 ['portfolio' => [$portfolio, $anotherPortfolioId]]
 ```
 
-The values of a binary column (e.g. a UUID stored in `BINARY(16)`) are bound as binary, also the raw bytes passed as a string. A value implementing `DoctrineParameterAware` creates its own parameter when it is passed alone. A single date is bound by Doctrine by its own type, in a list it is converted by the type of the column.
+The values of a binary column (e.g. a UUID stored in `BINARY(16)`) are bound as binary, also the raw bytes passed as a string. A value implementing `DoctrineParameterAware` creates its own parameter when it is passed alone. A date compared with a column of a date type is converted by the type of the column, alone or in a list. A `DATE` column is so compared with the date only, `['day >=' => new DateTimeImmutable('2026-01-01 10:00:00')]` matches the rows of 2026-01-01 too, and a `TIME` column with the time only.
 
 SQL never matches `NULL` by a comparison, so `['status !=' => 'banned']` skips rows whose status is `NULL`. A `null` in a list is compared by `IS NULL` instead: `['status' => ['active', null]]` matches active rows and rows without a status, `['status !=' => ['banned', null]]` matches rows with a status other than banned.
 
