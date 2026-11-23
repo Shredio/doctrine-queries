@@ -6,6 +6,7 @@ use Shredio\DoctrineQueries\DoctrineQueries;
 use Tests\Entity\Article;
 use Tests\Entity\FavouritePrompt;
 use Tests\Entity\TypedValues;
+use Tests\Entity\UsageRecord;
 use function PHPStan\Testing\assertType;
 
 final readonly class DoctrineQueriesDynamicReturnTypeExtensionCases
@@ -158,6 +159,48 @@ final readonly class DoctrineQueriesDynamicReturnTypeExtensionCases
 		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<int|string, mixed>', $queries->minGroupedBy(TypedValues::class, $field, $groupBy));
 		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<(int|string), float|int|numeric-string|null>', $queries->sumGroupedBy(\stdClass::class, 'id', 'id'));
 		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<(int|string), mixed>', $queries->maxGroupedBy(\stdClass::class, 'id', 'id'));
+	}
+
+	public function testAggregationsOfUnsignedColumns(DoctrineQueries $queries): void
+	{
+		assertType('int<0, max>|null', $queries->sumBy(UsageRecord::class, 'tokens'));
+		assertType('int<0, max>|null', $queries->sumBy(UsageRecord::class, 'retries'));
+		assertType('int<0, max>|null', $queries->sumBy(UsageRecord::class, 'bytes'));
+		assertType('int<0, max>|null', $queries->sumBy(UsageRecord::class, 'priority'));
+		assertType('int<0, max>|null', $queries->sumBy(UsageRecord::class, 'previous.tokens'));
+		assertType('int|null', $queries->sumBy(UsageRecord::class, 'balance'));
+		assertType('numeric-string|null', $queries->sumBy(UsageRecord::class, 'fee'));
+		assertType('int|null', $queries->sumBy(UsageRecord::class, rand(0, 1) === 1 ? 'tokens' : 'balance'));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<string, int<0, max>>', $queries->sumGroupedBy(UsageRecord::class, 'tokens', 'provider'));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<string, int<0, max>|null>', $queries->sumGroupedBy(UsageRecord::class, 'retries', 'provider'));
+		assertType('array<int<0, max>, int<0, max>>', $queries->sumGroupedBy(UsageRecord::class, 'tokens', 'id')->asArray());
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<int<0, max>, int>', $queries->sumGroupedBy(UsageRecord::class, 'balance', 'previous'));
+		assertType('int<0, max>|null', $queries->minBy(UsageRecord::class, 'tokens'));
+		assertType('int<0, max>|null', $queries->maxBy(UsageRecord::class, 'retries'));
+		assertType('int<0, max>|null', $queries->maxBy(UsageRecord::class, 'bytes'));
+		assertType('Tests\\Entity\\Enum\\Priority|null', $queries->maxBy(UsageRecord::class, 'priority'));
+		assertType('int|null', $queries->minBy(UsageRecord::class, 'balance'));
+		assertType('(numeric-string&uppercase-string)|null', $queries->maxBy(UsageRecord::class, 'fee'));
+		assertType('7|null', $queries->maxBy(UsageRecord::class, 'tokens', ['tokens' => 7]));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<string, int<0, max>>', $queries->minGroupedBy(UsageRecord::class, 'tokens', 'provider'));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<int<0, max>, int<0, max>|null>', $queries->maxGroupedBy(UsageRecord::class, 'retries', 'tokens'));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<int<0, max>, int<1, max>>', $queries->countGroupedBy(UsageRecord::class, 'tokens'));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabaseExistenceResults<array{id: int<0, max>, tokens: int<0, max>, balance: int}>', $queries->existsManyBy(UsageRecord::class, [['id' => 1, 'tokens' => 2, 'balance' => 3]]));
+	}
+
+	public function testSumOfSummableType(DoctrineQueries $queries): void
+	{
+		assertType('float|null', $queries->sumBy(UsageRecord::class, 'cost'));
+		assertType('float|null', $queries->sumBy(UsageRecord::class, 'discount'));
+		assertType('float|null', $queries->sumBy(UsageRecord::class, 'previous.cost'));
+		assertType('float|null', $queries->sumBy(UsageRecord::class, 'cost', ['cost' => 1.5]));
+		assertType('float|int<0, max>|null', $queries->sumBy(UsageRecord::class, rand(0, 1) === 1 ? 'cost' : 'tokens'));
+		assertType('float|int|numeric-string|null', $queries->sumBy(UsageRecord::class, 'account'));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<string, float>', $queries->sumGroupedBy(UsageRecord::class, 'cost', 'provider'));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<string, float|null>', $queries->sumGroupedBy(UsageRecord::class, 'discount', 'provider'));
+		assertType('array<string, float>', $queries->sumGroupedBy(UsageRecord::class, 'discount', 'provider', ['discount !=' => null])->asArray());
+		assertType('float|null', $queries->maxBy(UsageRecord::class, 'cost'));
+		assertType('Shredio\\DoctrineQueries\\Result\\DatabasePairs<string, float|null>', $queries->minGroupedBy(UsageRecord::class, 'discount', 'provider'));
 	}
 
 }

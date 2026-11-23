@@ -4,6 +4,7 @@ namespace Shredio\DoctrineQueries\Metadata;
 
 use Doctrine\ORM\Mapping\AssociationMapping;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Mapping\FieldMapping;
 use Doctrine\ORM\Mapping\ManyToOneAssociationMapping;
 use Doctrine\ORM\Mapping\OneToOneOwningSideMapping;
 use Doctrine\Persistence\Mapping\ClassMetadataFactory;
@@ -69,6 +70,7 @@ final readonly class FieldMetadata
 				$nullable,
 				$fieldMapping->enumType,
 				$this->field->hasParent(),
+				unsigned: self::isUnsigned($fieldMapping),
 			);
 		}
 
@@ -86,7 +88,13 @@ final readonly class FieldMetadata
 			$fieldMapping->enumType,
 			true,
 			true,
+			self::isUnsigned($fieldMapping), // the join column stores the values of the referenced one
 		);
+	}
+
+	private static function isUnsigned(FieldMapping $fieldMapping): bool
+	{
+		return ($fieldMapping->options['unsigned'] ?? null) === true;
 	}
 
 	private function isAssociationNullable(AssociationMapping $mapping): bool

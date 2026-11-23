@@ -29,13 +29,11 @@ final readonly class QueryReturnTypeResolver
 
 	/**
 	 * @param TypeSystem<TType> $types
-	 * @param FieldTypeMapper<TType> $fieldTypeMapper
 	 * @param QueryArgumentReader<TType> $reader
 	 * @param FieldTypeResolver<TType> $fieldTypeResolver
 	 */
 	public function __construct(
 		private TypeSystem $types,
-		private FieldTypeMapper $fieldTypeMapper,
 		private AnalysisClassMetadataFactory $classMetadataFactory,
 		private QueryArgumentReader $reader,
 		private FieldTypeResolver $fieldTypeResolver,
@@ -221,7 +219,7 @@ final readonly class QueryReturnTypeResolver
 					return $this->createExistenceResults(null);
 				}
 
-				$valueTypes[$field->name] = $this->fieldTypeMapper->createType($fieldType, true);
+				$valueTypes[$field->name] = $this->fieldTypeResolver->createType($fieldType, true);
 			}
 		}
 
@@ -257,6 +255,7 @@ final readonly class QueryReturnTypeResolver
 
 	/**
 	 * The sum by the kind of the summed field, see SumKind. Without null, which the sum of no value is.
+	 * The sum of an integer column mapped as unsigned is not negative.
 	 *
 	 * @param QueryCallContext<TType> $context
 	 * @return TType
@@ -265,11 +264,12 @@ final readonly class QueryReturnTypeResolver
 	{
 		$sumTypes = [];
 
-		foreach ($context->getFieldArgumentDoctrineTypes('field') ?? [] as $doctrineType) {
-			$sumType = match (SumKind::fromDoctrineType($doctrineType)) {
-				SumKind::Integer => $this->types->intRange(null, null),
+		foreach ($context->getFieldArgumentFieldTypes('field') ?? [] as $fieldType) {
+			$sumType = match (SumKind::fromDoctrineType($fieldType->type)) {
+				SumKind::Integer => $this->types->intRange($fieldType->unsigned ? 0 : null, null),
 				SumKind::Decimal => $this->types->numericString(),
 				SumKind::Float => $this->types->float(),
+				SumKind::FieldValue => $this->types->removeNull($this->fieldTypeResolver->createType($fieldType, false)),
 				null => null,
 			};
 
@@ -296,7 +296,8 @@ final readonly class QueryReturnTypeResolver
 	private function getGroupedSumType(QueryCallContext $context, array $criteriaVariants): object
 	{
 		$sumType = $this->getSumType($context);
-		$fieldType = $context->getFieldArgumentType('field', $criteriaVariants);
+		// The type of the PHP value, the type the driver returns is known for fewer custom types and null is added to both.
+		$fieldType = $context->getFieldArgumentType('field', $criteriaVariants, QueryType::Array);
 
 		return $fieldType === null || $this->types->canBeNull($fieldType) ? $this->types->addNull($sumType) : $sumType;
 	}

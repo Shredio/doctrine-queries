@@ -34,7 +34,6 @@ final readonly class DoctrineQueriesAnalyzer
 		$reader = new QueryArgumentReader($types);
 		$this->returnTypeResolver = new QueryReturnTypeResolver(
 			$types,
-			$fieldTypeMapper,
 			$classMetadataFactory,
 			$reader,
 			new FieldTypeResolver($types, $fieldTypeMapper),

@@ -6,6 +6,7 @@ use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
 use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
 use Shredio\DoctrineQueries\Exception\UnsupportedFieldTypeException;
 use Shredio\DoctrineQueries\Join\JoinParser;
+use Shredio\DoctrineQueries\Metadata\FieldType;
 use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 use Shredio\DoctrineQueries\Select\Field;
 use Shredio\DoctrineQueries\Select\QueryType;
@@ -117,13 +118,13 @@ final readonly class QueryCallContext
 	}
 
 	/**
-	 * The Doctrine types of the fields passed as constant strings in the argument, e.g. 'integer'.
+	 * The types of the columns of the fields passed as constant strings in the argument.
 	 *
-	 * @return list<string>|null Null when a field is not known or is not a field with a type, e.g. an association
+	 * @return list<FieldType>|null Null when a field is not known or is not a field with a type, e.g. an association
 	 */
-	public function getFieldArgumentDoctrineTypes(string $parameterName): ?array
+	public function getFieldArgumentFieldTypes(string $parameterName): ?array
 	{
-		$doctrineTypes = [];
+		$fieldTypes = [];
 
 		foreach ($this->getFieldArgumentNames($parameterName) as $field) {
 			try {
@@ -132,13 +133,13 @@ final readonly class QueryCallContext
 					return null; // reported by the validation
 				}
 
-				$doctrineTypes[] = $fieldMetadata->getFieldType()->type;
+				$fieldTypes[] = $fieldMetadata->getFieldType();
 			} catch (FieldNotExistsException|InvalidAssociationPathException|UnsupportedFieldTypeException) {
 				return null; // reported by the validation
 			}
 		}
 
-		return $doctrineTypes === [] ? null : $doctrineTypes;
+		return $fieldTypes === [] ? null : $fieldTypes;
 	}
 
 	/**

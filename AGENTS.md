@@ -127,6 +127,8 @@ joinConfig: ['author.role' => 'left'] // LEFT JOIN nested relation
 $queries->countBy($entity, $criteria)
 $queries->countGroupedBy($entity, $groupBy, $criteria)->asArray() // [value => count] in one query, keys are database values, a value without entities is missing: $counts[$key] ?? 0
 $queries->sumBy($entity, $field, $criteria) // int for an integer field, numeric-string for a decimal, float for a float; null for no value
+// a field of a custom DBAL type can be summed when the type implements SummableType, the sum is converted by its convertToPHPValue()
+// PHPStan infers int<0, max> for the integers of a column mapped with options: ['unsigned' => true] (selected fields and aggregations)
 $queries->minBy($entity, $field, $criteria) // maxBy(): converted by the field type (date object, enum), null for no value
 $queries->sumGroupedBy($entity, $field, $groupBy, $criteria)->asArray() // also minGroupedBy(), maxGroupedBy(): [value => aggregation]
 $queries->existsBy($entity, $criteria)  

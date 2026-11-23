@@ -31,6 +31,7 @@ use Tests\Doctrine\AccountNumber;
 use Tests\Doctrine\AccountNumberType;
 use Tests\Doctrine\BinaryId;
 use Tests\Doctrine\BinaryIdType;
+use Tests\Doctrine\FloatDecimalType;
 use Tests\Doctrine\SymbolType;
 use Tests\Doctrine\ValueObjectTypeDescriptor;
 
@@ -59,6 +60,7 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 			new ValueObjectTypeDescriptor(AccountNumberType::class, AccountNumber::class, new PhpStanIntegerType()),
 			new ValueObjectTypeDescriptor(BinaryIdType::class, BinaryId::class, new PhpStanStringType()),
 			new ReflectionDescriptor(SymbolType::class, $this->createReflectionProvider(), self::getContainer()),
+			new ReflectionDescriptor(FloatDecimalType::class, $this->createReflectionProvider(), self::getContainer()),
 		]);
 
 		$analyzerFactory = new PhpStanAnalyzerFactory($objectMetadataResolver, $descriptorRegistry, new DriverDetector());
@@ -629,15 +631,15 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 	{
 		$this->analyse([__DIR__ . '/Data/AggregationRuleCases.php'], [
 			[
-				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - the field `label` of entity Tests\\Entity\\TypedValues has the type `string` and cannot be summed, only integer, decimal and float fields can.',
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - the field `label` of entity Tests\\Entity\\TypedValues has the type `string` and cannot be summed, only integer, decimal and float fields and fields of a custom type implementing SummableType can.',
 				30,
 			],
 			[
-				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - the field `day` of entity Tests\\Entity\\TypedValues has the type `date_immutable` and cannot be summed, only integer, decimal and float fields can.',
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - the field `day` of entity Tests\\Entity\\TypedValues has the type `date_immutable` and cannot be summed, only integer, decimal and float fields and fields of a custom type implementing SummableType can.',
 				31,
 			],
 			[
-				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumGroupedBy() - the field `title` of entity Tests\\Entity\\Article has the type `string` and cannot be summed, only integer, decimal and float fields can.',
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumGroupedBy() - the field `title` of entity Tests\\Entity\\Article has the type `string` and cannot be summed, only integer, decimal and float fields and fields of a custom type implementing SummableType can.',
 				32,
 			],
 			[
@@ -707,6 +709,14 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 			[
 				'The entity class `NonExistentEntity` does not exist or is not managed by Doctrine.',
 				53,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - the field `account` of entity Tests\\Entity\\UsageRecord has the type `account_number` and cannot be summed, only integer, decimal and float fields and fields of a custom type implementing SummableType can.',
+				62,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumGroupedBy() - the field `previous.account` of entity Tests\\Entity\\UsageRecord has the type `account_number` and cannot be summed, only integer, decimal and float fields and fields of a custom type implementing SummableType can.',
+				63,
 			],
 		]);
 	}

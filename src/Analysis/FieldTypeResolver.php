@@ -2,9 +2,11 @@
 
 namespace Shredio\DoctrineQueries\Analysis;
 
+use Shredio\DoctrineQueries\Aggregation\SumKind;
 use Shredio\DoctrineQueries\Criteria\CriteriaParser;
 use Shredio\DoctrineQueries\Exception\UnsupportedFieldTypeException;
 use Shredio\DoctrineQueries\Metadata\FieldMetadata;
+use Shredio\DoctrineQueries\Metadata\FieldType;
 use Shredio\DoctrineQueries\Select\QueryType;
 
 /**
@@ -42,7 +44,7 @@ final readonly class FieldTypeResolver
 
 		// Doctrine converts selected fields to PHP values except in scalar queries, but never IDENTITY() of an association.
 		$isDatabaseValue = $queryType === QueryType::Scalar || $fieldMetadata->isAssociation;
-		$type = $this->fieldTypeMapper->createType($fieldType, $isDatabaseValue);
+		$type = $this->createType($fieldType, $isDatabaseValue);
 
 		// The query runs with one of the variants, so a row has the type narrowed by any of them.
 		$narrowedTypes = [];
@@ -56,6 +58,23 @@ final readonly class FieldTypeResolver
 		}
 
 		return $narrowedTypes === [] ? $type : $this->types->union(...$narrowedTypes);
+	}
+
+	/**
+	 * The type of a value of the field, as FieldTypeMapper::createType() maps it. The integers of an integer column mapped
+	 * as unsigned are not negative, the other values it can be returned in (a numeric string, an enum) are left as they are.
+	 *
+	 * @return TType
+	 */
+	public function createType(FieldType $fieldType, bool $databaseValue): object
+	{
+		$type = $this->fieldTypeMapper->createType($fieldType, $databaseValue);
+
+		if (!$fieldType->unsigned || $this->types->isMixed($type) || SumKind::fromDoctrineType($fieldType->type) !== SumKind::Integer) {
+			return $type;
+		}
+
+		return $this->types->remove($type, $this->types->intRange(null, -1));
 	}
 
 	/**

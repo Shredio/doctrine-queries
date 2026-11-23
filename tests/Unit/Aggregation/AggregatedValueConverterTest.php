@@ -10,8 +10,11 @@ use Shredio\DoctrineQueries\Aggregation\AggregateFunction;
 use Shredio\DoctrineQueries\Exception\AggregationOverflowException;
 use Shredio\DoctrineQueries\Exception\UnsupportedAggregationException;
 use Shredio\DoctrineQueries\Metadata\FieldType;
+use Tests\Doctrine\AccountNumberType;
+use Tests\Doctrine\FloatDecimalType;
 use Tests\Entity\Enum\ArticleType;
 use Tests\Entity\Enum\Priority;
+use Tests\Factory\EntityManagerFactory;
 use Tests\TestCase;
 
 final class AggregatedValueConverterTest extends TestCase
@@ -43,6 +46,40 @@ final class AggregatedValueConverterTest extends TestCase
 	public function testConvert(AggregateFunction $function, string $doctrineType, mixed $value, mixed $expected): void
 	{
 		$this->assertSame($expected, self::createConverter($function, $doctrineType)->convert($value));
+	}
+
+	/**
+	 * @return iterable<string, array{mixed, float}>
+	 */
+	public static function provideSumsOfSummableType(): iterable
+	{
+		yield 'decimal string of MySQL' => ['4.000000', 4.0];
+		yield 'float of SQLite' => [1.75, 1.75];
+		yield 'integer of SQLite' => [4, 4.0];
+	}
+
+	#[DataProvider('provideSumsOfSummableType')]
+	public function testSumOfSummableTypeIsConvertedByTheType(mixed $value, float $expected): void
+	{
+		EntityManagerFactory::createInMemory(); // registers the custom types
+
+		$this->assertSame($expected, self::createConverter(AggregateFunction::Sum, FloatDecimalType::Name)->convert($value));
+		$this->assertNull(self::createConverter(AggregateFunction::Sum, FloatDecimalType::Name)->convert(null));
+		$this->assertSame(
+			$expected,
+			self::createConverter(AggregateFunction::Sum, FloatDecimalType::Name, Priority::class)->convert($value),
+			'A sum is not a case of the enum.',
+		);
+	}
+
+	public function testSumOfCustomTypeThatIsNotSummableIsNotSupported(): void
+	{
+		EntityManagerFactory::createInMemory(); // registers the custom types
+
+		$this->expectException(UnsupportedAggregationException::class);
+		$this->expectExceptionMessage('Only integer, decimal and float fields and fields of a custom type implementing Shredio\DoctrineQueries\Aggregation\SummableType can be summed.');
+
+		self::createConverter(AggregateFunction::Sum, AccountNumberType::Name);
 	}
 
 	public function testMinimumOfDatesIsConvertedToAnObject(): void

@@ -12,6 +12,7 @@ use Doctrine\DBAL\Types\Type;
 /**
  * The kind of a field that can be summed. The databases return a sum in a type of their own (MySQL sums integers
  * to a decimal string), so the sum is returned by the kind of the field: an integer, a numeric string or a float.
+ * The sum of a field of a custom type implementing SummableType is converted by the type, as a value of the field is.
  *
  * @internal
  */
@@ -21,6 +22,7 @@ enum SumKind
 	case Integer;
 	case Decimal;
 	case Float;
+	case FieldValue;
 
 	/** Types added in later versions of DBAL 4, compared by name so that the older versions are still supported. */
 	private const string NumberType = 'Doctrine\DBAL\Types\NumberType';
@@ -46,6 +48,7 @@ enum SumKind
 		$type = Type::getType($typeName);
 
 		return match (true) {
+			$type instanceof SummableType => self::FieldValue, // also when it extends a type summed another way
 			$type instanceof IntegerType, $type instanceof SmallIntType, $type instanceof BigIntType => self::Integer,
 			$type instanceof DecimalType, is_a($type, self::NumberType) => self::Decimal,
 			$type instanceof FloatType, is_a($type, self::SmallFloatType) => self::Float,

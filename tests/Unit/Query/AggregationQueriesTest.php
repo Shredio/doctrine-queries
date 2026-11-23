@@ -22,6 +22,7 @@ use Tests\Entity\Enum\Priority;
 use Tests\Entity\Note;
 use Tests\Entity\NoteTag;
 use Tests\Entity\TypedValues;
+use Tests\Entity\UsageRecord;
 use Tests\Factory\EntityManagerFactory;
 use Tests\TestCase;
 use Tests\Unit\Helpers;
@@ -306,9 +307,69 @@ final class AggregationQueriesTest extends TestCase
 		$this->persistFixtures();
 
 		$this->expectException(UnsupportedAggregationException::class);
-		$this->expectExceptionMessage('SUM() of Tests\Entity\Article::$title is not supported, the field has the type "string". Only integer, decimal and float fields can be summed.');
+		$this->expectExceptionMessage('SUM() of Tests\Entity\Article::$title is not supported, the field has the type "string". Only integer, decimal and float fields and fields of a custom type implementing Shredio\DoctrineQueries\Aggregation\SummableType can be summed.');
 
 		$this->createDoctrineQueries()->sumBy(Article::class, 'title');
+	}
+
+	public function testSumOfSummableTypeIsConvertedByTheType(): void
+	{
+		$this->persistUsageRecords();
+		$queries = $this->createDoctrineQueries();
+
+		$this->assertSame(4.0, $this->assertSingleQuery(static fn (): mixed => $queries->sumBy(UsageRecord::class, 'cost')), 'A float as the field, not a decimal string.');
+		$this->assertSame(1.75, $queries->sumBy(UsageRecord::class, 'cost', ['provider' => 'a']));
+		$this->assertSame(0.5, $queries->sumBy(UsageRecord::class, 'discount'), 'NULL values are skipped.');
+		$this->assertSame(1.5, $queries->sumBy(UsageRecord::class, 'previous.cost'), 'The cost of the first record, the second one follows it.');
+		$this->assertSame(2.25, $queries->maxBy(UsageRecord::class, 'cost'));
+	}
+
+	public function testSumOfSummableTypeIsNullWithoutValues(): void
+	{
+		$this->persistUsageRecords();
+		$queries = $this->createDoctrineQueries();
+
+		$this->assertNull($queries->sumBy(UsageRecord::class, 'cost', ['id' => 0]), 'No entity matches.');
+		$this->assertNull($queries->sumBy(UsageRecord::class, 'discount', ['provider' => 'b']), 'All the values are NULL.');
+	}
+
+	public function testSumGroupedByOfSummableType(): void
+	{
+		$this->persistUsageRecords();
+		$queries = $this->createDoctrineQueries();
+
+		$this->assertSame(
+			['a' => 1.75, 'b' => 2.25],
+			self::sortedByKey($this->assertSingleQuery(static fn (): array => $queries->sumGroupedBy(UsageRecord::class, 'cost', 'provider')->asArray())),
+		);
+		$this->assertSame(
+			['a' => 0.5, 'b' => null],
+			self::sortedByKey($queries->sumGroupedBy(UsageRecord::class, 'discount', 'provider')->asArray()),
+			'The sum of a group is null when all its values are NULL.',
+		);
+		$this->assertSame([], $queries->sumGroupedBy(UsageRecord::class, 'cost', 'provider', ['id' => 0])->asArray());
+	}
+
+	public function testAggregationsOfUnsignedColumns(): void
+	{
+		$this->persistUsageRecords();
+		$queries = $this->createDoctrineQueries();
+
+		$this->assertSame(60, $queries->sumBy(UsageRecord::class, 'tokens'));
+		$this->assertSame(-60, $queries->sumBy(UsageRecord::class, 'balance'), 'A signed column next to the unsigned ones.');
+		$this->assertSame(10, $queries->minBy(UsageRecord::class, 'tokens'));
+		$this->assertSame(2, $queries->maxBy(UsageRecord::class, 'retries'));
+		$this->assertSame(['a' => 30, 'b' => 30], self::sortedByKey($queries->sumGroupedBy(UsageRecord::class, 'tokens', 'provider')->asArray()));
+	}
+
+	public function testSumOfCustomTypeThatIsNotSummableIsRejected(): void
+	{
+		$this->persistUsageRecords();
+
+		$this->expectException(UnsupportedAggregationException::class);
+		$this->expectExceptionMessage('SUM() of Tests\Entity\UsageRecord::$account is not supported, the field has the type "account_number".');
+
+		$this->createDoctrineQueries()->sumBy(UsageRecord::class, 'account');
 	}
 
 	public function testSumGroupedByRejectsFieldThatIsNotANumber(): void
@@ -407,6 +468,23 @@ final class AggregationQueriesTest extends TestCase
 		$third->ratio = 1.0;
 
 		return [$first, $second, $third];
+	}
+
+	/**
+	 * | id | provider | tokens | balance | cost | discount | retries | previous |
+	 * |----|----------|--------|---------|------|----------|---------|----------|
+	 * | 1  | a        | 10     | -10     | 1.5  | 0.5      | 2       | -        |
+	 * | 2  | a        | 20     | -20     | 0.25 | null     | null    | 1        |
+	 * | 3  | b        | 30     | -30     | 2.25 | null     | 0       | -        |
+	 */
+	private function persistUsageRecords(): void
+	{
+		$em = $this->getEntityManager();
+		$em->persist($first = self::createUsageRecord(1, 'a', 10, 1.5, discount: 0.5, retries: 2));
+		$em->persist(self::createUsageRecord(2, 'a', 20, 0.25, previous: $first));
+		$em->persist(self::createUsageRecord(3, 'b', 30, 2.25, retries: 0));
+		$em->flush();
+		$em->clear();
 	}
 
 	private function persistHashtags(): void

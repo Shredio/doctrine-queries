@@ -5,10 +5,12 @@ namespace Tests\Unit;
 use BackedEnum;
 use DateTimeImmutable;
 use DateTimeInterface;
+use Tests\Doctrine\AccountNumber;
 use Tests\Doctrine\Symbol;
 use Tests\Entity\Enum\ArticleType;
 use Tests\Entity\Enum\Priority;
 use Tests\Entity\TypedValues;
+use Tests\Entity\UsageRecord;
 
 trait Helpers
 {
@@ -51,6 +53,31 @@ trait Helpers
 			tags: ['first'],
 			kind: ArticleType::News,
 			priority: Priority::High,
+		);
+	}
+
+	private static function createUsageRecord(
+		int $id,
+		string $provider,
+		int $tokens,
+		float $cost,
+		?float $discount = null,
+		?int $retries = null,
+		?UsageRecord $previous = null,
+	): UsageRecord
+	{
+		return new UsageRecord(
+			id: $id,
+			provider: $provider,
+			tokens: $tokens,
+			balance: -$tokens,
+			cost: $cost,
+			account: new AccountNumber(1000 + $id),
+			bytes: $tokens * 1024,
+			fee: '1.50',
+			retries: $retries,
+			discount: $discount,
+			previous: $previous,
 		);
 	}
 

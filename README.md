@@ -513,10 +513,32 @@ $lastPublishedAtByAuthor = $queries->maxGroupedBy(Article::class, 'publishedAt',
 
 The databases return aggregations in types of their own, e.g. MySQL sums integers to a decimal string and Doctrine does not convert the result of a function. The methods return the same types on every database:
 
-- `sumBy()` returns an integer for an integer field, a numeric string for a decimal field and a float for a float field. Other fields cannot be summed. A sum of an integer field that does not fit into a PHP integer throws an `AggregationOverflowException`.
+- `sumBy()` returns an integer for an integer field, a numeric string for a decimal field and a float for a float field. Other fields cannot be summed, unless their custom type is summable, see below. A sum of an integer field that does not fit into a PHP integer throws an `AggregationOverflowException`.
 - `minBy()` and `maxBy()` return a value of the field converted by its type, as `$queries->arrays` returns a selected field: a date object for a date, an enum for an enum field.
 
 A field of a related entity can be aggregated too (`'author.rating'`, `'comments.likes'`), an association itself cannot. The keys of the grouped variants are database values and a value no entity matches is missing in the result, as in `countGroupedBy()`. The aggregation of a group is `null` only when all its values are `NULL`.
+
+A field of a custom DBAL type can be summed when the type implements `SummableType`. The sum is then converted by `convertToPHPValue()` of the type, as a value of the field is, so it has the PHP type of the field:
+
+```php
+use Shredio\DoctrineQueries\Aggregation\SummableType;
+
+// A decimal column read as a float, its sum is a float too
+final class FloatDecimalType extends Type implements SummableType
+{
+
+    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): ?float
+    {
+        return $value === null ? null : (float) $value; // a sum is a numeric string, an integer or a float
+    }
+
+    // ...
+}
+
+$costByProvider = $queries->sumGroupedBy(AiCall::class, 'costUsd', 'provider')->asArray(); // array<string, float>
+```
+
+The PHPStan extension infers the type of such a sum from the descriptor of the type, as it does for a selected field.
 
 ## Deletion Operations
 
@@ -562,6 +584,8 @@ This provides:
 - Detection of `asArray()` of `findPairsBy()`, `findIndexedBy()` and the grouped aggregations (e.g. `countGroupedBy()`) whose key can be `NULL` or is not an integer or a string, see [Key-Value Pairs](#key-value-pairs). Only calls chained directly on the finder are checked, a result stored in a variable first is not followed.
 
 Doctrine does not convert scalar results (`$queries->scalars`, and `IDENTITY()` of associations in `$queries->arrays`), so their PHP types depend on the database driver. The extension infers them for the driver of the connection returned by phpstan-doctrine's `objectManagerLoader`, including `PDO::ATTR_STRINGIFY_FETCHES`. For example a `decimal` column is `float|int` on `pdo_sqlite` but `numeric-string` on `pdo_mysql` and `mysqli`, so configure the loader with the same driver and options as the application. Criteria narrow the inferred type only when the database returns the value in the form it was compared in, e.g. `['name' => 'John']` does not narrow `name` to `'John'` on MySQL, whose default collations compare case-insensitively.
+
+The integers of an integer column mapped as unsigned (`options: ['unsigned' => true]`) are inferred as `int<0, max>` wherever the column is returned: a selected field, a key, `sumBy()`, `minBy()`, `maxBy()` and their grouped variants. Only the mapping is read, not the PHPDoc of the property, and the database is trusted to follow it: MySQL and MariaDB store no negative number in such a column, the databases without unsigned columns (PostgreSQL, SQLite) do not check it.
 
 The inferred types are narrowed only by what every returned row certainly matches:
 

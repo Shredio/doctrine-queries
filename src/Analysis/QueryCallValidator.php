@@ -272,7 +272,7 @@ final readonly class QueryCallValidator
 
 		return new AnalysisError(
 			sprintf(
-				'Call to method %s::%s() - the field `%s` of entity %s has the type `%s` and cannot be summed, only integer, decimal and float fields can.',
+				'Call to method %s::%s() - the field `%s` of entity %s has the type `%s` and cannot be summed, only integer, decimal and float fields and fields of a custom type implementing SummableType can.',
 				$call->className,
 				$call->methodName,
 				$field->selector,

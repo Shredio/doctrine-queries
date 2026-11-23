@@ -40,9 +40,10 @@ final readonly class AggregatedValueConverter
 
 		if ($function === AggregateFunction::Sum && $this->sumKind === null) {
 			throw new UnsupportedAggregationException(sprintf(
-				'%s is not supported, the field has the type "%s". Only integer, decimal and float fields can be summed.',
+				'%s is not supported, the field has the type "%s". Only integer, decimal and float fields and fields of a custom type implementing %s can be summed.',
 				$aggregation,
 				$fieldType->type,
+				SummableType::class,
 			));
 		}
 	}
@@ -60,6 +61,7 @@ final readonly class AggregatedValueConverter
 			SumKind::Integer => $this->toInteger($value),
 			SumKind::Decimal => $this->toNumericString($value),
 			SumKind::Float => $this->toFloat($value),
+			SumKind::FieldValue => $this->convertByFieldType($value), // a sum of an enum field is not a case of the enum
 			null => $this->toFieldValue($value),
 		};
 	}
@@ -110,7 +112,7 @@ final readonly class AggregatedValueConverter
 
 	private function toFieldValue(mixed $value): mixed
 	{
-		$value = Type::getType($this->fieldType->type)->convertToPHPValue($value, $this->platform);
+		$value = $this->convertByFieldType($value);
 		$enumType = $this->fieldType->enumType;
 
 		if ($enumType !== null && (is_int($value) || is_string($value))) {
@@ -118,6 +120,11 @@ final readonly class AggregatedValueConverter
 		}
 
 		return $value;
+	}
+
+	private function convertByFieldType(mixed $value): mixed
+	{
+		return Type::getType($this->fieldType->type)->convertToPHPValue($value, $this->platform);
 	}
 
 	private function unexpectedValue(mixed $value): LogicException

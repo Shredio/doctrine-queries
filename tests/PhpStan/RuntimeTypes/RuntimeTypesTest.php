@@ -16,6 +16,7 @@ use Tests\Context\DoctrineContext;
 use Tests\Entity\Enum\ArticleType;
 use Tests\Entity\Enum\Priority;
 use Tests\Entity\TypedValues;
+use Tests\Unit\Helpers;
 
 /**
  * Checks that the result types inferred by the PHPStan extension match the values the database driver returns.
@@ -29,6 +30,7 @@ final class RuntimeTypesTest extends TypeInferenceTestCase
 {
 
 	use DoctrineContext;
+	use Helpers;
 
 	/** Excluded from mutation testing, see infection.json5 */
 	public const string Group = 'runtime-types';
@@ -57,6 +59,7 @@ final class RuntimeTypesTest extends TypeInferenceTestCase
 	{
 		$this->persistFixtures();
 		$this->persistTypedValues();
+		$this->persistUsageRecords();
 
 		$value = (new RuntimeTypesCases($this->createDoctrineQueries()))->{$methodName}();
 
@@ -138,6 +141,15 @@ final class RuntimeTypesTest extends TypeInferenceTestCase
 		}
 
 		return $keys !== [] ? sprintf('the inferred keys %s', implode(', ', array_unique($keys))) : $type->describe(VerbosityLevel::precise());
+	}
+
+	private function persistUsageRecords(): void
+	{
+		$em = $this->getEntityManager();
+		$em->persist($first = self::createUsageRecord(1, 'a', 10, 1.5, discount: 0.5, retries: 2));
+		$em->persist(self::createUsageRecord(2, 'b', 0, 0.25, previous: $first));
+		$em->flush();
+		$em->clear();
 	}
 
 	private function persistTypedValues(): void

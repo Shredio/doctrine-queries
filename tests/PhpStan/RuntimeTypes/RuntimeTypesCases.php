@@ -7,6 +7,7 @@ use Shredio\DoctrineQueries\DoctrineQueries;
 use SortDirection;
 use Tests\Entity\Article;
 use Tests\Entity\TypedValues;
+use Tests\Entity\UsageRecord;
 
 /**
  * Every method runs one query. RuntimeTypesTest infers the type of each returned expression with PHPStan
@@ -505,6 +506,99 @@ final readonly class RuntimeTypesCases
 	public function maxGroupedByAssociation(): array
 	{
 		return $this->queries->maxGroupedBy(Article::class, 'createdAt', 'author')->asArray();
+	}
+
+	public function sumOfSummableType(): mixed
+	{
+		return $this->queries->sumBy(UsageRecord::class, 'cost');
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function sumGroupedByOfSummableType(): array
+	{
+		return $this->queries->sumGroupedBy(UsageRecord::class, 'cost', 'provider')->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function sumGroupedByOfNullableSummableType(): array
+	{
+		return $this->queries->sumGroupedBy(UsageRecord::class, 'discount', 'provider')->asArray();
+	}
+
+	public function sumOfUnsignedInteger(): mixed
+	{
+		return $this->queries->sumBy(UsageRecord::class, 'tokens');
+	}
+
+	public function sumOfUnsignedBigint(): mixed
+	{
+		return $this->queries->sumBy(UsageRecord::class, 'bytes');
+	}
+
+	public function maxOfUnsignedBigint(): mixed
+	{
+		return $this->queries->maxBy(UsageRecord::class, 'bytes');
+	}
+
+	public function minOfUnsignedSmallint(): mixed
+	{
+		return $this->queries->minBy(UsageRecord::class, 'retries', ['retries !=' => null]);
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function sumGroupedByOfUnsignedInteger(): array
+	{
+		return $this->queries->sumGroupedBy(UsageRecord::class, 'tokens', 'id')->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function maxGroupedByUnsignedAssociation(): array
+	{
+		return $this->queries->maxGroupedBy(UsageRecord::class, 'tokens', 'previous', ['previous !=' => null])->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function scalarsUnsignedFields(): array
+	{
+		return $this->queries->scalars->findBy(UsageRecord::class, orderBy: self::ById, select: [
+			'id',
+			'tokens',
+			'balance',
+			'retries',
+			'bytes',
+			'priority',
+			'fee',
+			'previous',
+		])->asArray();
+	}
+
+	/**
+	 * @return mixed[]
+	 */
+	public function arraysUnsignedFields(): array
+	{
+		return $this->queries->arrays->findBy(UsageRecord::class, orderBy: self::ById, select: [
+			'id',
+			'tokens',
+			'balance',
+			'retries',
+			'bytes',
+			'priority',
+			'fee',
+			'previous',
+			'cost',
+			'discount',
+		])->asArray();
 	}
 
 }

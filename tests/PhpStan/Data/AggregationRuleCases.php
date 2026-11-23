@@ -53,4 +53,14 @@ class AggregationRuleCases
 		$this->doctrineQueries->sumBy('NonExistentEntity', 'id');
 	}
 
+	public function customTypes(): void // the class is not imported, an import would move the lines of the cases above
+	{
+		$this->doctrineQueries->sumBy(\Tests\Entity\UsageRecord::class, 'cost');
+		$this->doctrineQueries->sumGroupedBy(\Tests\Entity\UsageRecord::class, 'discount', 'provider');
+		$this->doctrineQueries->sumBy(\Tests\Entity\UsageRecord::class, 'previous.cost');
+		$this->doctrineQueries->maxBy(\Tests\Entity\UsageRecord::class, 'account');
+		$this->doctrineQueries->sumBy(\Tests\Entity\UsageRecord::class, 'account');
+		$this->doctrineQueries->sumGroupedBy(\Tests\Entity\UsageRecord::class, 'previous.account', 'provider');
+	}
+
 }

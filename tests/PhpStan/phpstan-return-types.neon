@@ -28,6 +28,10 @@ services:
 		tags:
 			- phpstan.doctrine.typeDescriptor
 	-
+		factory: PHPStan\Type\Doctrine\Descriptors\ReflectionDescriptor('Tests\Doctrine\FloatDecimalType')
+		tags:
+			- phpstan.doctrine.typeDescriptor
+	-
 		class: Tests\Doctrine\NonEmptyStringTypeDescriptor
 		tags:
 			- phpstan.doctrine.typeDescriptor

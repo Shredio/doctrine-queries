@@ -11,7 +11,9 @@ use Tests\Context\DoctrineContext;
 use Tests\Entity\Article;
 use Tests\Entity\FavouritePromptReference;
 use Tests\Entity\Note;
+use Tests\Entity\Enum\Priority;
 use Tests\Entity\OneToOnePrimary;
+use Tests\Entity\UsageRecord;
 use Tests\TestCase;
 
 final class FieldMetadataTest extends TestCase
@@ -26,6 +28,28 @@ final class FieldMetadataTest extends TestCase
 	{
 		yield 'many-to-one' => [Article::class, 'author', new FieldType('integer', false, null, true, true)];
 		yield 'owning side of one-to-one' => [OneToOnePrimary::class, 'assoc', new FieldType('integer', false, null, true, true)];
+		yield 'referencing an unsigned identifier' => [UsageRecord::class, 'previous', new FieldType('integer', true, null, true, true, true)];
+	}
+
+	/**
+	 * @return iterable<string, array{non-empty-string, FieldType}>
+	 */
+	public static function provideFieldTypeOfUsageRecord(): iterable
+	{
+		yield 'unsigned integer' => ['tokens', new FieldType('integer', false, null, false, unsigned: true)];
+		yield 'nullable unsigned smallint' => ['retries', new FieldType('smallint', true, null, false, unsigned: true)];
+		yield 'unsigned enum' => ['priority', new FieldType('smallint', false, Priority::class, false, unsigned: true)];
+		yield 'signed integer' => ['balance', new FieldType('integer', false, null, false)];
+		yield 'unsigned field of a related entity' => ['previous.tokens', new FieldType('integer', true, null, true, unsigned: true)];
+	}
+
+	/**
+	 * @param non-empty-string $field
+	 */
+	#[DataProvider('provideFieldTypeOfUsageRecord')]
+	public function testUnsignedOptionOfField(string $field, FieldType $expectedType): void
+	{
+		$this->assertEquals($expectedType, $this->getMetadata(UsageRecord::class, QueryType::Scalar)->getFieldMetadata(new Field($field))->getFieldType(false));
 	}
 
 	/**
