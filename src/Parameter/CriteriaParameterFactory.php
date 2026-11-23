@@ -27,6 +27,7 @@ use Shredio\DoctrineQueries\Exception\UnsupportedFieldTypeException;
 use Shredio\DoctrineQueries\Metadata\FieldMetadata;
 use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 use Shredio\DoctrineQueries\Select\Field;
+use Throwable;
 
 /**
  * Creates the query parameter of a value compared with a field.
@@ -118,6 +119,24 @@ final readonly class CriteriaParameterFactory
 		$columnType = self::findColumnType($metadata->getFieldMetadata($field));
 
 		return $columnType !== null && self::isBoundAsBinary($columnType);
+	}
+
+	/**
+	 * Whether the type refuses to convert an object it does not know. A type that does not (StringType, IntegerType, ...)
+	 * passes the object through and the driver binds it, so no object compared with its column fails here.
+	 * The static analysis uses it to report only the objects create() throws on.
+	 */
+	public static function rejectsUnknownObjects(Type $columnType, AbstractPlatform $platform): bool
+	{
+		try {
+			$columnType->convertToDatabaseValue(new class {
+
+			}, $platform);
+		} catch (Throwable) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**

@@ -3,6 +3,7 @@
 namespace Shredio\DoctrineQueries\PhpStan;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\GuidType;
 use Doctrine\DBAL\Types\StringType;
 use Doctrine\DBAL\Types\TextType;
@@ -24,6 +25,8 @@ use PHPStan\Type\TypeCombinator;
 use PHPStan\Type\TypeUtils;
 use Shredio\DoctrineQueries\Analysis\FieldTypeMapper;
 use Shredio\DoctrineQueries\Metadata\FieldType;
+use Shredio\DoctrineQueries\Parameter\CriteriaParameterFactory;
+use Throwable;
 
 /**
  * Maps the Doctrine types to PHPStan types by the descriptors of phpstan-doctrine, the scalar results by the driver
@@ -46,6 +49,10 @@ final class PhpStanFieldTypeMapper implements FieldTypeMapper
 	private ?Connection $connection = null;
 
 	private bool $connectionResolved = false;
+
+	private ?AbstractPlatform $databasePlatform = null;
+
+	private bool $databasePlatformResolved = false;
 
 	public function __construct(
 		private readonly ObjectMetadataResolver $objectMetadataResolver,
@@ -71,6 +78,26 @@ final class PhpStanFieldTypeMapper implements FieldTypeMapper
 		$dbalType = DbalType::getType($fieldType->type);
 
 		return ($dbalType instanceof StringType || $dbalType instanceof TextType) && !$dbalType instanceof GuidType;
+	}
+
+	public function getTypeConvertedToDatabaseValue(FieldType $fieldType): ?Type
+	{
+		try {
+			$type = $this->descriptorRegistry->get($fieldType->type)->getWritableToDatabaseType(); // @phpstan-ignore phpstanApi.method
+		} catch (DescriptorNotRegisteredException) {
+			return null;
+		}
+
+		if ($type instanceof MixedType) {
+			return null; // converts anything, e.g. json, or the descriptor does not know
+		}
+
+		$platform = $this->getDatabasePlatform();
+		if ($platform === null || !CriteriaParameterFactory::rejectsUnknownObjects(DbalType::getType($fieldType->type), $platform)) {
+			return null;
+		}
+
+		return $type;
 	}
 
 	/**
@@ -152,6 +179,25 @@ final class PhpStanFieldTypeMapper implements FieldTypeMapper
 		}
 
 		return (bool) ($this->driverDetector->detectDriverOptions($connection)[PDO::ATTR_STRINGIFY_FETCHES] ?? false); // @phpstan-ignore phpstanApi.method
+	}
+
+	/**
+	 * The platform the Doctrine types convert the values for. Null without a connection and when the platform cannot
+	 * be told, a connection without a configured server version asks the server, which may not be running.
+	 */
+	private function getDatabasePlatform(): ?AbstractPlatform
+	{
+		if (!$this->databasePlatformResolved) {
+			$this->databasePlatformResolved = true;
+
+			try {
+				$this->databasePlatform = $this->getConnection()?->getDatabasePlatform();
+			} catch (Throwable) {
+				$this->databasePlatform = null;
+			}
+		}
+
+		return $this->databasePlatform;
 	}
 
 	private function getConnection(): ?Connection

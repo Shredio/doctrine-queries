@@ -39,7 +39,12 @@ final readonly class DoctrineQueriesAnalyzer
 			$reader,
 			new FieldTypeResolver($types, $fieldTypeMapper),
 		);
-		$this->callValidator = new QueryCallValidator($types, $classMetadataFactory, $reader);
+		$this->callValidator = new QueryCallValidator(
+			$types,
+			$classMetadataFactory,
+			$reader,
+			new CriteriaValueValidator($types, $fieldTypeMapper),
+		);
 		$this->resultArrayKeyValidator = new ResultArrayKeyValidator($types, $this->returnTypeResolver);
 	}
 

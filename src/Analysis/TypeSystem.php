@@ -123,6 +123,29 @@ interface TypeSystem
 	public function isArray(object $type): bool;
 
 	/**
+	 * Whether every value of the type is an object.
+	 *
+	 * @param TType $type
+	 */
+	public function isObject(object $type): bool;
+
+	/**
+	 * Whether every value of the type is iterated: an array, or an object that certainly is Traversable.
+	 *
+	 * @param TType $type
+	 */
+	public function isIterable(object $type): bool;
+
+	/**
+	 * Whether the type contains the values of the other type: true when it contains them all (Countable and ArrayObject),
+	 * false when it contains none of them (int and string), null when it is not known (Countable and Stringable).
+	 *
+	 * @param TType $type
+	 * @param TType $otherType
+	 */
+	public function isSuperTypeOf(object $type, object $otherType): ?bool;
+
+	/**
 	 * Whether a value of the type can be iterated and an iterated value can be null, e.g. list<?int>, iterable<mixed>
 	 * or mixed. Only the members of the type that can be iterated are considered, int|list<int> iterates no null.
 	 * An object is iterated only when it certainly is Traversable, not when a subclass of its class could be.
@@ -242,6 +265,12 @@ interface TypeSystem
 	 * @return TType
 	 */
 	public function constantArray(array $valueTypes): object;
+
+	/**
+	 * @param class-string $className
+	 * @return TType
+	 */
+	public function objectType(string $className): object;
 
 	/**
 	 * @param class-string $className

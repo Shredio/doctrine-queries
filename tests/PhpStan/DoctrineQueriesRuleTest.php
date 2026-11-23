@@ -9,6 +9,8 @@ use PHPStan\Type\Doctrine\DefaultDescriptorRegistry;
 use PHPStan\Type\Doctrine\Descriptors\ArrayType;
 use PHPStan\Type\Doctrine\Descriptors\BigIntType;
 use PHPStan\Type\Doctrine\Descriptors\BinaryType;
+use PHPStan\Type\Doctrine\Descriptors\BooleanType;
+use PHPStan\Type\Doctrine\Descriptors\DateImmutableType;
 use PHPStan\Type\Doctrine\Descriptors\DateTimeImmutableType;
 use PHPStan\Type\Doctrine\Descriptors\DateTimeType;
 use PHPStan\Type\Doctrine\Descriptors\DateType;
@@ -18,10 +20,19 @@ use PHPStan\Type\Doctrine\Descriptors\JsonType;
 use PHPStan\Type\Doctrine\Descriptors\ReflectionDescriptor;
 use PHPStan\Type\Doctrine\Descriptors\SimpleArrayType;
 use PHPStan\Type\Doctrine\Descriptors\StringType;
+use PHPStan\Type\Doctrine\Descriptors\TextType;
+use PHPStan\Type\Doctrine\Descriptors\TimeImmutableType;
 use PHPStan\Type\Doctrine\ObjectMetadataResolver;
+use PHPStan\Type\IntegerType as PhpStanIntegerType;
+use PHPStan\Type\StringType as PhpStanStringType;
 use Shredio\DoctrineQueries\PhpStan\PhpStanAnalyzerFactory;
 use Shredio\DoctrineQueries\PhpStan\Rule\DoctrineQueriesRule;
+use Tests\Doctrine\AccountNumber;
+use Tests\Doctrine\AccountNumberType;
+use Tests\Doctrine\BinaryId;
+use Tests\Doctrine\BinaryIdType;
 use Tests\Doctrine\SymbolType;
+use Tests\Doctrine\ValueObjectTypeDescriptor;
 
 final class DoctrineQueriesRuleTest extends RuleTestCase
 {
@@ -33,6 +44,8 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 			new ArrayType(),
 			new BigIntType(),
 			new BinaryType(),
+			new BooleanType(new DriverDetector()),
+			new DateImmutableType(),
 			new DateTimeImmutableType(),
 			new DateTimeType(),
 			new DateType(),
@@ -41,6 +54,10 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 			new IntegerType(),
 			new StringType(),
 			new SimpleArrayType(),
+			new TextType(),
+			new TimeImmutableType(),
+			new ValueObjectTypeDescriptor(AccountNumberType::class, AccountNumber::class, new PhpStanIntegerType()),
+			new ValueObjectTypeDescriptor(BinaryIdType::class, BinaryId::class, new PhpStanStringType()),
 			new ReflectionDescriptor(SymbolType::class, $this->createReflectionProvider(), self::getContainer()),
 		]);
 
@@ -690,6 +707,116 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 			[
 				'The entity class `NonExistentEntity` does not exist or is not managed by Doctrine.',
 				53,
+			],
+		]);
+	}
+
+	public function testCriteriaValueTypes(): void
+	{
+		$this->analyse([__DIR__ . '/Data/CriteriaValueTypeRuleCases.php'], [
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				105,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				106,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				107,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				108,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId|Tests\\Doctrine\\Symbol, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				109,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\Symbol, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				110,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId|Tests\\Doctrine\\Symbol, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				111,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Entity\\Portfolio, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				112,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `portfolio` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\AccountNumber, the type `binary_id` of its column converts only string|Tests\\Doctrine\\BinaryId.',
+				113,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `portfolio` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Entity\\InvestmentAccount, the type `binary_id` of its column converts only string|Tests\\Doctrine\\BinaryId.',
+				114,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `portfolio.id` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Entity\\Portfolio, the type `binary_id` of its column converts only string|Tests\\Doctrine\\BinaryId.',
+				115,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `accounts.number` of entity Tests\\Entity\\Portfolio is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				116,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `day` of entity Tests\\Entity\\TypedValues is compared with Tests\\Doctrine\\AccountNumber, the type `date_immutable` of its column converts only DateTimeImmutable.',
+				117,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `moment` of entity Tests\\Entity\\TypedValues is compared with Tests\\Doctrine\\AccountNumber, the type `datetime_immutable` of its column converts only DateTimeImmutable.',
+				118,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				123,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ArrayQueries::findOneBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				124,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ObjectQueries::findBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				125,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findColumnValuesBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				126,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\Query\\ArrayQueries::findPairsBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				127,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				128,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::deleteBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				129,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::sumBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				130,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::countGroupedBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				131,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::subQuery() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				132,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `number` of entity Tests\\Entity\\InvestmentAccount is compared with Tests\\Doctrine\\BinaryId, the type `account_number` of its column converts only int|Tests\\Doctrine\\AccountNumber.',
+				133,
+			],
+			[
+				'Call to method Shredio\\DoctrineQueries\\DoctrineQueries::existsBy() - criteria `portfolio` of entity Tests\\Entity\\InvestmentAccount is compared with $this(Tests\\PhpStan\\Data\\CriteriaValueTypeRuleCases), the type `binary_id` of its column converts only string|Tests\\Doctrine\\BinaryId.',
+				134,
 			],
 		]);
 	}

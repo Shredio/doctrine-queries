@@ -60,6 +60,7 @@ $names = $queries->scalars->findColumnValuesBy(User::class, 'name')->asArray();
 
 // A date compared with a column of a date type is converted by the column type, alone or in a list: a DATE column
 // is compared with the date only, ['day >=' => new DateTimeImmutable('2026-01-01 10:00:00')] matches 2026-01-01 too
+// PHPStan reports an object the column type does not convert (doctrineQueries.criteriaValueType), it throws at runtime
 
 // A null in a list is compared by IS NULL: active or no status / a status other than banned
 ['status' => ['active', null], 'role !=' => ['banned', null]]

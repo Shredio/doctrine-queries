@@ -137,6 +137,27 @@ final readonly class PhpStanTypeSystem implements TypeSystem
 		return $type->isArray()->yes();
 	}
 
+	public function isObject(object $type): bool
+	{
+		return $type->isObject()->yes();
+	}
+
+	public function isIterable(object $type): bool
+	{
+		return $type->isIterable()->yes();
+	}
+
+	public function isSuperTypeOf(object $type, object $otherType): ?bool
+	{
+		$result = $type->isSuperTypeOf($otherType);
+
+		return match (true) {
+			$result->yes() => true,
+			$result->no() => false,
+			default => null,
+		};
+	}
+
 	public function canIterateNull(object $type): bool
 	{
 		foreach ($this->getUnionMembers($type) as $member) {
@@ -243,6 +264,11 @@ final readonly class PhpStanTypeSystem implements TypeSystem
 		}
 
 		return $builder->getArray();
+	}
+
+	public function objectType(string $className): Type
+	{
+		return new ObjectType($className);
 	}
 
 	public function genericObject(string $className, array $templateTypes): Type

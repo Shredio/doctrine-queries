@@ -36,11 +36,13 @@ final readonly class QueryCallValidator
 	/**
 	 * @param TypeSystem<TType> $types
 	 * @param QueryArgumentReader<TType> $reader
+	 * @param CriteriaValueValidator<TType> $criteriaValueValidator
 	 */
 	public function __construct(
 		private TypeSystem $types,
 		private AnalysisClassMetadataFactory $classMetadataFactory,
 		private QueryArgumentReader $reader,
+		private CriteriaValueValidator $criteriaValueValidator,
 	)
 	{
 	}
@@ -329,7 +331,7 @@ final readonly class QueryCallValidator
 			} else if ($call->className === DoctrineQueries::class && $call->methodName === 'deleteBy' && $item->field->hasParent()) {
 				$error = $this->deleteByRelatedCriteria($item);
 			} else {
-				$error = $this->validateField($call, 'criteria', $item->field);
+				$error = $this->validateField($call, 'criteria', $item->field) ?? $this->criteriaValueValidator->validate($call, $item);
 			}
 
 			if ($error !== null) {
