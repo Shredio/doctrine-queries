@@ -54,6 +54,10 @@ $names = $queries->scalars->findColumnValuesBy(User::class, 'name')->asArray();
 // Arrays (IN/NOT IN), objects in a list (dates, custom DBAL type values) are converted by the column type
 ['status' => ['active', 'pending'], 'id !=' => [1, 2, 3]]
 
+// Value objects of a custom DBAL type and entities (alone or in a list) are bound by the column type, for an association by the type
+// of the referenced identifier, the values of a binary column (BINARY(16) UUID) as binary
+['portfolio' => $portfolioId, 'owner' => [$user, $anotherUserId]]
+
 // A null in a list is compared by IS NULL: active or no status / a status other than banned
 ['status' => ['active', null], 'role !=' => ['banned', null]]
 

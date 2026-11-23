@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\ORMSetup;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Tests\Doctrine\BinaryIdType;
 use Tests\Doctrine\SymbolType;
 
 final readonly class EntityManagerFactory
@@ -52,8 +53,10 @@ final readonly class EntityManagerFactory
 	 */
 	private static function createForConnection(array $connectionParameters, array $middlewares = []): EntityManagerInterface
 	{
-		if (!Type::hasType(SymbolType::Name)) {
-			Type::addType(SymbolType::Name, SymbolType::class);
+		foreach ([SymbolType::Name => SymbolType::class, BinaryIdType::Name => BinaryIdType::class] as $typeName => $typeClass) {
+			if (!Type::hasType($typeName)) {
+				Type::addType($typeName, $typeClass);
+			}
 		}
 
 		$config = ORMSetup::createAttributeMetadataConfiguration([

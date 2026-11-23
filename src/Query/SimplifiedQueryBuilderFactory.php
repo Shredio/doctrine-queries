@@ -3,13 +3,9 @@
 namespace Shredio\DoctrineQueries\Query;
 
 use BackedEnum;
-use DateTimeImmutable;
-use DateTimeInterface;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Platforms\AbstractPlatform;
-use Doctrine\DBAL\Types\ConversionException;
-use Doctrine\DBAL\Types\Type;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\AssociationMapping;
 use Doctrine\ORM\Mapping\ClassMetadata;
@@ -27,7 +23,7 @@ use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
 use Shredio\DoctrineQueries\Join\JoinParser;
 use Shredio\DoctrineQueries\Metadata\QueryMetadata;
 use Shredio\DoctrineQueries\Order\NullsLast;
-use Shredio\DoctrineQueries\Parameter\DoctrineParameterAware;
+use Shredio\DoctrineQueries\Parameter\CriteriaParameterFactory;
 use Shredio\DoctrineQueries\Result\QueryResultIterator;
 use Shredio\DoctrineQueries\Select\Field;
 use Shredio\DoctrineQueries\Select\QueryType;
@@ -247,6 +243,11 @@ final readonly class SimplifiedQueryBuilderFactory
 			}
 		}
 
+		$binaryFields = [];
+		foreach ($fieldNames as $fieldName) {
+			$binaryFields[$fieldName] = CriteriaParameterFactory::isBinaryField($metadata, new Field($fieldName));
+		}
+
 		$queryBuilders = [];
 		$rowsPerQuery = max(1, intdiv(self::MaxBoundValuesPerExistenceQuery, count($fieldNames)));
 		foreach (array_chunk($rows, $rowsPerQuery) as $chunk) {
@@ -268,7 +269,9 @@ final readonly class SimplifiedQueryBuilderFactory
 					}
 
 					// QueryBuilder::setParameter() looks for an existing parameter of the name first, these names are unique.
-					$parameters->add(new Parameter($parameterName = sprintf('param_%d', $index), $value));
+					// Doctrine would bind the bytes of a binary column as text.
+					$parameterType = is_string($value) && $binaryFields[$field] ? ParameterType::BINARY : null;
+					$parameters->add(new Parameter($parameterName = sprintf('param_%d', $index), $value, $parameterType));
 					$fieldConditions[] = $qb->expr()->eq($path, ':' . $parameterName);
 				}
 
@@ -401,18 +404,13 @@ final readonly class SimplifiedQueryBuilderFactory
 
 		$conditions = [];
 		$parameters = $qb->getParameters();
+		$em = $qb->getEntityManager();
 
 		foreach ($items as $parsed) {
 			$conditions[] = $parsed->getExpression($metadata);
 
-			if ($parsed->parameterName) {
-				if ($parsed->value instanceof DoctrineParameterAware) {
-					$parameters->add($parsed->value->createDoctrineParameter($parsed->parameterName));
-				} else if (is_array($parsed->value)) {
-					$parameters->add(new Parameter($parsed->parameterName, $this->convertListToDatabaseValues($qb, $metadata, $parsed->field, $parsed->value)));
-				} else {
-					$parameters->add(new Parameter($parsed->parameterName, $parsed->value));
-				}
+			if ($parsed->parameterName !== null) {
+				$parameters->add(CriteriaParameterFactory::create($em, $metadata, $parsed->field, $parsed->parameterName, $parsed->value));
 			}
 
 			if ($parsed->parameters) {
@@ -735,6 +733,10 @@ final readonly class SimplifiedQueryBuilderFactory
 			return null;
 		}
 
+		if ($listParameterType === ArrayParameterType::STRING && CriteriaParameterFactory::isBinaryField($metadata, new Field($field))) {
+			$listParameterType = ArrayParameterType::BINARY;
+		}
+
 		$path = sprintf('%s.%s', $metadata->rootAlias, $field);
 		$queryBuilders = [];
 		foreach (array_chunk($listValues, self::MaxBoundValuesPerExistenceQuery) as $chunk) {
@@ -856,51 +858,6 @@ final readonly class SimplifiedQueryBuilderFactory
 		}
 
 		return $em;
-	}
-
-	/**
-	 * DBAL binds the items of a list as they are and only as integers or strings. Doctrine converts a single object
-	 * by its type but not the objects in a list, so they are converted by the type of the column here.
-	 *
-	 * @param array<array-key, mixed> $values
-	 * @return array<array-key, mixed>
-	 */
-	private function convertListToDatabaseValues(QueryBuilder $qb, QueryMetadata $metadata, Field $field, array $values): array
-	{
-		$type = null;
-
-		foreach ($values as $key => $value) {
-			if (!is_object($value) || $value instanceof BackedEnum) {
-				continue; // enums are converted by Doctrine
-			}
-
-			if ($type === null) {
-				$fieldMetadata = $metadata->getFieldMetadata($field);
-				if ($fieldMetadata->isAssociation) {
-					return $values; // entities are converted to their identifiers by Doctrine
-				}
-
-				$type = Type::getType($fieldMetadata->getFieldType()->type);
-			}
-
-			$values[$key] = self::convertToDatabaseValue($type, $value, $qb->getEntityManager()->getConnection()->getDatabasePlatform());
-		}
-
-		return $values;
-	}
-
-	private static function convertToDatabaseValue(Type $type, object $value, AbstractPlatform $platform): mixed
-	{
-		try {
-			return $type->convertToDatabaseValue($value, $platform);
-		} catch (ConversionException $exception) {
-			if ($value instanceof DateTimeInterface && !$value instanceof DateTimeImmutable) {
-				// Immutable date types accept only DateTimeImmutable, while Doctrine accepts a single DateTime for them too.
-				return $type->convertToDatabaseValue(DateTimeImmutable::createFromInterface($value), $platform);
-			}
-
-			throw $exception;
-		}
 	}
 
 }

@@ -13,6 +13,7 @@ use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
 use Shredio\DoctrineQueries\Exception\ToManyAssociationException;
 use SortDirection;
 use stdClass;
+use Stringable;
 use Tests\Context\DoctrineContext;
 use Tests\Doctrine\Symbol;
 use Tests\Entity\Article;
@@ -100,6 +101,9 @@ final class CriteriaQueriesTest extends TestCase
 		yield 'datetime greater than' => [['createdAt >' => new DateTimeImmutable('2022-01-01')], []];
 		yield 'custom type with DoctrineParameterAware' => [['symbol' => new Symbol('sym')], [1]];
 		yield 'custom type as a database value' => [['symbol' => 'sym'], [1]];
+		// The type of a string column passes an object through, it is bound by its text form as Doctrine binds it.
+		yield 'stringable object' => [['title' => self::createStringable('Sample Article')], [1]];
+		yield 'in stringable objects' => [['title' => [self::createStringable('Sample Article'), self::createStringable('Third Article')]], [1, 3]];
 
 		yield 'association by identifier' => [['author' => 1], [1, 3]];
 		yield 'association in' => [['author' => [2]], [2]];
@@ -283,6 +287,24 @@ final class CriteriaQueriesTest extends TestCase
 		$this->expectException(FieldNotExistsException::class);
 
 		$this->createDoctrineQueries()->scalars->findBy(Article::class, orderBy: ['unknown' => SortDirection::Ascending])->asArray();
+	}
+
+	private static function createStringable(string $text): Stringable
+	{
+		return new readonly class ($text) implements Stringable {
+
+			public function __construct(
+				private string $text,
+			)
+			{
+			}
+
+			public function __toString(): string
+			{
+				return $this->text;
+			}
+
+		};
 	}
 
 	/**

@@ -187,6 +187,20 @@ Supported operators are `=`, `!=`, `<>`, `<`, `<=`, `>`, `>=`, `LIKE` and `NOT L
 ['createdAt' => [new DateTimeImmutable('2024-01-01'), new DateTimeImmutable('2024-02-01')]]
 ```
 
+### Value Objects and Entities
+
+```php
+// A value object of a custom DBAL type is converted by the type of the column, alone or in a list
+['id' => $portfolioId]
+['id' => [$firstPortfolioId, $secondPortfolioId]]
+
+// An association is compared by the identifier of its entity: pass the entity, its identifier object or the database value
+['portfolio' => $portfolio]
+['portfolio' => [$portfolio, $anotherPortfolioId]]
+```
+
+The values of a binary column (e.g. a UUID stored in `BINARY(16)`) are bound as binary, also the raw bytes passed as a string. A value implementing `DoctrineParameterAware` creates its own parameter when it is passed alone. A single date is bound by Doctrine by its own type, in a list it is converted by the type of the column.
+
 SQL never matches `NULL` by a comparison, so `['status !=' => 'banned']` skips rows whose status is `NULL`. A `null` in a list is compared by `IS NULL` instead: `['status' => ['active', null]]` matches active rows and rows without a status, `['status !=' => ['banned', null]]` matches rows with a status other than banned.
 
 ### Criteria on To-Many Associations
