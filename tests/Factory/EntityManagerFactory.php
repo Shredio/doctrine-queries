@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\ORMSetup;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Tests\Doctrine\AccountNumberType;
 use Tests\Doctrine\BinaryIdType;
 use Tests\Doctrine\SymbolType;
 
@@ -25,6 +26,12 @@ final readonly class EntityManagerFactory
 	private const array InMemoryConnectionParameters = [
 		'driver' => 'pdo_sqlite',
 		'path' => ':memory:',
+	];
+
+	private const array CustomTypes = [
+		SymbolType::Name => SymbolType::class,
+		BinaryIdType::Name => BinaryIdType::class,
+		AccountNumberType::Name => AccountNumberType::class,
 	];
 
 	/**
@@ -53,7 +60,7 @@ final readonly class EntityManagerFactory
 	 */
 	private static function createForConnection(array $connectionParameters, array $middlewares = []): EntityManagerInterface
 	{
-		foreach ([SymbolType::Name => SymbolType::class, BinaryIdType::Name => BinaryIdType::class] as $typeName => $typeClass) {
+		foreach (self::CustomTypes as $typeName => $typeClass) {
 			if (!Type::hasType($typeName)) {
 				Type::addType($typeName, $typeClass);
 			}

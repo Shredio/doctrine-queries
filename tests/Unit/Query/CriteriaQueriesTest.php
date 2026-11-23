@@ -6,7 +6,10 @@ use ArrayIterator;
 use DateTime;
 use DateTimeImmutable;
 use Doctrine\DBAL\Types\ConversionException;
+use Doctrine\ORM\ORMInvalidArgumentException;
+use Doctrine\ORM\Query\QueryException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 use Shredio\DoctrineQueries\Exception\FieldNotExistsException;
 use Shredio\DoctrineQueries\Exception\InvalidAssociationPathException;
 use Shredio\DoctrineQueries\Exception\NoClassMetadataException;
@@ -20,6 +23,12 @@ use Tests\Entity\Article;
 use Tests\Entity\ArticleHashtag;
 use Tests\Entity\Author;
 use Tests\Entity\Enum\ArticleType;
+use Tests\Entity\FavouritePrompt;
+use Tests\Entity\FavouritePromptReference;
+use Tests\Entity\OneToOneAssoc;
+use Tests\Entity\OneToOnePrimary;
+use Tests\Entity\OneToOnePrimaryReference;
+use Tests\Entity\Prompt;
 use Tests\Entity\TypedValues;
 use Tests\TestCase;
 use Tests\Unit\Helpers;
@@ -174,6 +183,92 @@ final class CriteriaQueriesTest extends TestCase
 		}
 
 		$this->assertSame(2, $this->createDoctrineQueries()->countBy(Article::class, ['author' => $johnDoe]));
+	}
+
+	/**
+	 * Doctrine rejects an entity without an identifier, it is not compared as a value object of the column.
+	 */
+	public function testEntityWithoutIdentifierIsRejected(): void
+	{
+		$this->persistFixtures();
+		$queries = $this->createDoctrineQueries();
+		$unsavedAuthor = (new ReflectionClass(Author::class))->newInstanceWithoutConstructor();
+		$message = 'Class "Tests\Entity\Author" does not have an identifier.';
+
+		$calls = [
+			'single' => static fn () => $queries->countBy(Article::class, ['author' => $unsavedAuthor]),
+			'not equals' => static fn () => $queries->existsBy(Article::class, ['author !=' => $unsavedAuthor]),
+			'list' => static fn () => $queries->scalars->findBy(Article::class, ['author' => [$unsavedAuthor]])->asArray(),
+			'list after a saved entity' => fn () => $queries->countBy(Article::class, ['author' => [$this->getEntityManager()->getReference(Author::class, 1), $unsavedAuthor]]),
+			'related entity' => static fn () => $queries->countBy(ArticleHashtag::class, ['article.author' => $unsavedAuthor]),
+		];
+
+		foreach ($calls as $name => $call) {
+			try {
+				$call();
+				$this->fail(sprintf('Expected ORMInvalidArgumentException for %s.', $name));
+			} catch (ORMInvalidArgumentException $exception) {
+				$this->assertStringContainsString($message, $exception->getMessage(), $name);
+			}
+		}
+	}
+
+	/**
+	 * The join column references the join column of the target entity, which has no type of its own. The value is left
+	 * to Doctrine, which compares it with the identifier of the entity the target entity is identified by.
+	 */
+	public function testAssociationToEntityIdentifiedByAssociation(): void
+	{
+		$em = $this->getEntityManager();
+		$em->persist($firstAssoc = new OneToOneAssoc(1, 'first'));
+		$em->persist($secondAssoc = new OneToOneAssoc(2, 'second'));
+		$em->flush();
+		$em->persist($firstPrimary = new OneToOnePrimary($firstAssoc, 'first'));
+		$em->persist($secondPrimary = new OneToOnePrimary($secondAssoc, 'second'));
+		$em->persist(new OneToOnePrimaryReference(1, $firstPrimary));
+		$em->persist(new OneToOnePrimaryReference(2, $firstPrimary));
+		$em->persist(new OneToOnePrimaryReference(3, $secondPrimary));
+		$em->flush();
+		$queries = $this->createDoctrineQueries();
+		$findIds = static fn (array $criteria): array => $queries->scalars
+			->findColumnValuesBy(OneToOnePrimaryReference::class, 'id', $criteria, ['id' => SortDirection::Ascending])
+			->asArray();
+
+		$this->assertSame([1, 2], $findIds(['primary' => $firstPrimary]));
+		$this->assertSame([3], $findIds(['primary !=' => $firstPrimary]));
+		$this->assertSame([1, 2, 3], $findIds(['primary' => [$firstPrimary, $secondPrimary]]));
+		$this->assertSame([1, 2], $findIds(['primary !=' => [$secondPrimary]]));
+		$this->assertSame([3], $findIds(['primary' => $secondAssoc->id]));
+		$this->assertSame([1, 2], $findIds(['primary' => [$firstAssoc->id]]));
+		$this->assertSame([3], $findIds(['primary.assoc' => $secondAssoc]));
+		$this->assertSame([1, 2], $findIds(['primary.assoc' => [$firstAssoc]]));
+		$this->assertSame(2, $queries->countBy(OneToOnePrimary::class, ['assoc' => [$firstAssoc, $secondAssoc]]));
+	}
+
+	/**
+	 * DQL cannot compare an association by a composite foreign key. Its value is left to Doctrine too, so the query fails
+	 * by the error of Doctrine instead of the missing type of the column.
+	 */
+	public function testAssociationByCompositeForeignKeyIsRejectedByDoctrine(): void
+	{
+		$em = $this->getEntityManager();
+		$em->persist($prompt = new Prompt(1, 'Prompt', 'Content'));
+		$em->persist($favourite = new FavouritePrompt(7, $prompt));
+		$em->persist(new FavouritePromptReference(1, $favourite));
+		$em->flush();
+		$queries = $this->createDoctrineQueries();
+
+		$this->assertSame(1, $queries->countBy(FavouritePromptReference::class, ['favourite.account' => [7, 8], 'favourite.prompt' => $prompt]));
+		$this->assertSame(1, $queries->countBy(FavouritePrompt::class, ['prompt' => [$prompt], 'account' => 7]));
+
+		foreach ([$favourite, [$favourite], 7, [7, 8]] as $index => $value) {
+			try {
+				$queries->countBy(FavouritePromptReference::class, ['favourite' => $value]);
+				$this->fail(sprintf('Expected QueryException for value %d.', $index));
+			} catch (QueryException $exception) {
+				$this->assertStringContainsString('composite primary key is not supported', $exception->getMessage());
+			}
+		}
 	}
 
 	public function testListOfDatesIsConvertedByTheTypeOfTheColumn(): void

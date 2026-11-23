@@ -7,6 +7,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Shredio\DoctrineQueries\Criteria\Criteria;
 use SortDirection;
 use Tests\Context\DoctrineContext;
+use Tests\Doctrine\AccountNumber;
 use Tests\Doctrine\BinaryId;
 use Tests\Entity\InvestmentAccount;
 use Tests\Entity\Portfolio;
@@ -16,12 +17,13 @@ use Tests\TestCase;
  * Criteria compared with a binary identifier of a custom DBAL type, directly and through an association.
  *
  * Doctrine binds an identifier object by its text form and a list of binary values as text, which silently matches no row.
+ * The number of an account is a value object of a custom DBAL type that is not binary and has no text form at all.
  *
- * | Account | portfolio |
- * |---------|-----------|
- * | 1       | First     |
- * | 2       | First     |
- * | 3       | Second    |
+ * | Account | portfolio | number |
+ * |---------|-----------|--------|
+ * | 1       | First     | 1001   |
+ * | 2       | First     | 1002   |
+ * | 3       | Second    | 2001   |
  *
  * The Empty portfolio has no account.
  */
@@ -69,6 +71,19 @@ final class BinaryIdentifierCriteriaTest extends TestCase
 		yield 'related identifier not in identifier objects' => [['portfolio.id !=' => [$first]], [3]];
 
 		yield 'alternatives' => [[Criteria::anyOf(['portfolio' => $second], ['portfolio' => [$first], 'id >' => 1])], [2, 3]];
+		// A value object that does not implement DoctrineParameterAware is bound by the type of its column.
+		yield 'value object equals' => [['number' => new AccountNumber(1002)], [2]];
+		yield 'value object not equals' => [['number !=' => new AccountNumber(1002)], [1, 3]];
+		yield 'value object greater than' => [['number >' => new AccountNumber(1001)], [2, 3]];
+		yield 'value object less than or equal' => [['number <=' => new AccountNumber(1002)], [1, 2]];
+		yield 'value object without a match' => [['number' => new AccountNumber(9999)], []];
+		yield 'in value objects' => [['number' => [new AccountNumber(1001), new AccountNumber(2001)]], [1, 3]];
+		yield 'not in value objects' => [['number !=' => [new AccountNumber(1001), new AccountNumber(2001)]], [2]];
+		yield 'in value object and database value' => [['number' => [1001, new AccountNumber(1002)]], [1, 2]];
+		yield 'value object as a database value' => [['number' => 2001], [3]];
+		yield 'value object and identifier object' => [['portfolio' => $first, 'number' => new AccountNumber(1001)], [1]];
+		yield 'value object in alternatives' => [[Criteria::anyOf(['number' => new AccountNumber(1001)], ['number >' => new AccountNumber(1002)])], [1, 3]];
+
 		yield 'with another criteria' => [['id <' => 3, 'portfolio' => [$first, $second], 'portfolio.name' => 'First'], [1, 2]];
 	}
 
@@ -155,6 +170,9 @@ final class BinaryIdentifierCriteriaTest extends TestCase
 		$this->assertSame(['Second'], $this->findPortfolioNames(['accounts.portfolio' => [$second->bytes]]));
 		$this->assertSame(['Second'], $this->findPortfolioNames(['accounts.portfolio.id' => [$second], 'accounts.id' => 3]));
 		$this->assertSame([], $this->findPortfolioNames(['accounts.portfolio' => [$second], 'accounts.id' => 1]));
+		$this->assertSame(['Second'], $this->findPortfolioNames(['accounts.number' => new AccountNumber(2001)]));
+		$this->assertSame(['First'], $this->findPortfolioNames(['accounts.number' => [new AccountNumber(1002), new AccountNumber(9999)]]));
+		$this->assertSame(['First'], $this->findPortfolioNames(['accounts.number >' => new AccountNumber(1001), 'accounts.portfolio' => $first]));
 	}
 
 	public function testSubQuery(): void
@@ -201,9 +219,9 @@ final class BinaryIdentifierCriteriaTest extends TestCase
 		$em->persist($first = new Portfolio(BinaryId::fromHex(self::FirstId), 'First'));
 		$em->persist($second = new Portfolio(BinaryId::fromHex(self::SecondId), 'Second'));
 		$em->persist(new Portfolio(BinaryId::fromHex(self::EmptyId), 'Empty'));
-		$em->persist(new InvestmentAccount(1, $first));
-		$em->persist(new InvestmentAccount(2, $first));
-		$em->persist(new InvestmentAccount(3, $second));
+		$em->persist(new InvestmentAccount(1, $first, new AccountNumber(1001)));
+		$em->persist(new InvestmentAccount(2, $first, new AccountNumber(1002)));
+		$em->persist(new InvestmentAccount(3, $second, new AccountNumber(2001)));
 		$em->flush();
 		$em->clear();
 	}
