@@ -13,6 +13,7 @@ use Shredio\DoctrineQueries\Select\SelectParser;
 use Tests\Context\DoctrineContext;
 use Tests\Entity\Article;
 use Tests\TestCase;
+use Throwable;
 
 final class SelectParserTest extends TestCase
 {
@@ -122,6 +123,20 @@ final class SelectParserTest extends TestCase
 
 		$this->assertSame(['id', 'title', 'content', 'symbol', 'createdAt', 'type'], array_map(static fn (FieldToSelect $field): string => $field->alias, $selection));
 		$this->assertCount(1, $errors);
+	}
+
+	public function testEachInvalidAliasOfAWildcardIsCollected(): void
+	{
+		$metadata = $this->getMetadata(Article::class, QueryType::Array);
+
+		$errors = [];
+		$selection = iterator_to_array(SelectParser::getMetadataForSelection($metadata, ['author.*' => 'author ', 'title'], $errors), false);
+
+		$this->assertSame(['title'], array_map(static fn (FieldToSelect $field): string => $field->alias, $selection));
+		$this->assertSame(
+			['author id', 'author name'],
+			array_map(static fn (Throwable $error): string => $error instanceof InvalidSelectAliasException ? $error->alias : $error::class, $errors),
+		);
 	}
 
 	public function testErrorsAreThrownWithoutCollector(): void

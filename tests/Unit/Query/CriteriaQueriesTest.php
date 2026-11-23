@@ -80,6 +80,9 @@ final class CriteriaQueriesTest extends TestCase
 		yield 'in with only a null item matches null values' => [['symbol' => [null]], [2, 3]];
 		yield 'not in with a null item skips null values' => [['symbol !=' => ['other', null]], [1]];
 		yield 'not in with only a null item skips null values' => [['symbol !=' => [null]], [1]];
+		yield 'in traversable with a null item matches null values' => [['symbol' => new ArrayIterator(['other', null])], [2, 3]];
+		yield 'not in traversable skips null values' => [['symbol !=' => new ArrayIterator(['other'])], [1]];
+		yield 'not in empty traversable matches null values' => [['symbol !=' => new ArrayIterator([])], [1, 2, 3]];
 		yield 'backed enum' => [['type' => ArticleType::News], [1, 2, 3]];
 		yield 'in backed enums' => [['type' => [ArticleType::News, ArticleType::Blog]], [1, 2, 3]];
 		yield 'not in backed enums' => [['type !=' => [ArticleType::News]], []];

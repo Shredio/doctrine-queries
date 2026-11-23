@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Query;
 
+use ArrayIterator;
+use Generator;
 use Shredio\DoctrineQueries\DoctrineQueries;
 use Shredio\DoctrineQueries\Pagination\Pagination;
 use SortDirection;
@@ -139,6 +141,70 @@ final class ToManyCriteriaTest extends TestCase
 			'An inner join of the hashtags requires one.',
 		);
 		$this->assertSame(1, $queries->countBy(Article::class, ['hashTags.hashtag' => null]));
+	}
+
+	public function testTraversableValues(): void
+	{
+		$queries = $this->createQueriesWithHashtags();
+		$generate = static function (mixed ...$values): Generator {
+			yield from $values;
+		};
+
+		$this->assertSame([1], $queries->scalars->findColumnValuesBy(Article::class, 'id', ['hashTags.hashtag' => $generate('doctrine')])->asArray());
+		$this->assertSame(
+			[1, 3],
+			$queries->scalars->findColumnValuesBy(Article::class, 'id', ['hashTags.hashtag' => $generate('doctrine', null)], self::OrderById)->asArray(),
+			'A generator is read once, both to detect NULL and to bind the values.',
+		);
+		$this->assertSame(
+			[1, 2],
+			$queries->scalars->findColumnValuesBy(Article::class, 'id', ['hashTags.hashtag' => new ArrayIterator(['first' => 'php', 'second' => 'doctrine'])], self::OrderById)->asArray(),
+		);
+		$this->assertSame(1, $queries->countBy(Article::class, ['hashTags.hashtag' => $generate('doctrine')]));
+		$this->assertTrue($queries->existsBy(Article::class, ['hashTags.hashtag' => $generate('doctrine')]));
+	}
+
+	/**
+	 * The joins of the sub-query are configured by the paths below the to-many association.
+	 *
+	 * | ProjectRole | member     | author role   |
+	 * |-------------|------------|---------------|
+	 * | 1           | John Doe   | -             |
+	 * | 2           | Jane Smith | Administrator |
+	 */
+	public function testJoinConfigBelowToManyAssociation(): void
+	{
+		$this->persistFixtures(static function (Author $johnDoe, Role $administrator, Author $janeSmith): array {
+			$maintainer = new ProjectRole(1, 'Maintainer');
+			$contributor = new ProjectRole(2, 'Contributor');
+
+			return [
+				$maintainer,
+				$contributor,
+				new ProjectMember(1, $johnDoe, $maintainer),
+				new ProjectMember(2, $janeSmith, $contributor),
+			];
+		});
+		$queries = $this->createDoctrineQueries();
+		$withoutRole = ['members.author.role.name' => null];
+		$administratorOrWithoutRole = ['members.author.role.name' => ['Administrator', null]];
+		$innerJoinOfRole = ['members.author.role' => 'inner'];
+
+		$this->assertSame([1], $queries->scalars->findColumnValuesBy(ProjectRole::class, 'id', $withoutRole)->asArray());
+		$this->assertSame(
+			[],
+			$queries->scalars->findColumnValuesBy(ProjectRole::class, 'id', $withoutRole, joinConfig: $innerJoinOfRole)->asArray(),
+			'An inner join of the role of the author requires one.',
+		);
+		$this->assertSame(
+			[1, 2],
+			$queries->scalars->findColumnValuesBy(ProjectRole::class, 'id', $administratorOrWithoutRole, self::OrderById)->asArray(),
+		);
+		$this->assertSame(
+			[2],
+			$queries->scalars->findColumnValuesBy(ProjectRole::class, 'id', $administratorOrWithoutRole, joinConfig: $innerJoinOfRole)->asArray(),
+		);
+		$this->assertSame(0, $queries->countBy(ProjectRole::class, $withoutRole, joinConfig: $innerJoinOfRole));
 	}
 
 	public function testNestedToManyAssociations(): void
