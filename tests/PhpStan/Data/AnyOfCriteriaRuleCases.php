@@ -104,7 +104,7 @@ class AnyOfCriteriaRuleCases
 
 	public function invalidFieldInFirstAlternativeAndCriteria(): void
 	{
-		$this->arrayQueries->findOneBy(Article::class, ['invalidCriteriaField' => 1, Criteria::anyOf(['invalidAlternativeField >' => 1, 'id' => 2], ['id' => 1])]);
+		$this->arrayQueries->findOneBy(Article::class, ['invalidCriteriaField' => 1, Criteria::anyOf(['invalidFieldOfAlternative >' => 1, 'id' => 2], ['id' => 1])]);
 	}
 
 	public function sameInvalidFieldInEveryAlternativeIsReportedOnce(): void

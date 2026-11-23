@@ -8,6 +8,7 @@ use PHPStan\Type\Constant\ConstantArrayType;
 use PHPStan\Type\Constant\ConstantArrayTypeBuilder;
 use PHPStan\Type\Constant\ConstantIntegerType;
 use PHPStan\Type\Constant\ConstantStringType;
+use PHPStan\Type\Enum\EnumCaseObjectType;
 use PHPStan\Type\FloatType;
 use PHPStan\Type\Generic\GenericObjectType;
 use PHPStan\Type\IntegerRangeType;
@@ -56,12 +57,12 @@ final readonly class PhpStanTypeSystem implements TypeSystem
 
 	public function isEnumCase(object $type): bool
 	{
-		return !$type instanceof UnionType && $type->getEnumCaseObject() !== null;
+		return self::getEnumCase($type) !== null;
 	}
 
 	public function getEnumCaseValueType(object $type): ?Type
 	{
-		return $type instanceof UnionType ? null : $type->getEnumCaseObject()?->getBackingValueType();
+		return self::getEnumCase($type)?->getBackingValueType();
 	}
 
 	public function isConstantArray(object $type): bool
@@ -247,6 +248,21 @@ final readonly class PhpStanTypeSystem implements TypeSystem
 	public function genericObject(string $className, array $templateTypes): Type
 	{
 		return new GenericObjectType($className, $templateTypes);
+	}
+
+	/**
+	 * The case the type is, null for a type of more cases. Type::getEnumCaseObject() would tell it too,
+	 * but the first versions of PHPStan 2.1 do not have it and the version of an application is not restricted.
+	 */
+	private static function getEnumCase(Type $type): ?EnumCaseObjectType
+	{
+		if ($type instanceof UnionType) {
+			return null;
+		}
+
+		$enumCases = $type->getEnumCases();
+
+		return count($enumCases) === 1 ? $enumCases[0] : null;
 	}
 
 	/**

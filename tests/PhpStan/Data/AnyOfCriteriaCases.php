@@ -30,7 +30,7 @@ class AnyOfCriteriaCases
 		assertType('Shredio\\DoctrineQueries\\Criteria\\AnyOf<list<array<string, mixed>>>', Criteria::anyOf(...$dynamicAlternatives));
 		assertType("Shredio\\DoctrineQueries\\Criteria\\AnyOf<array{array{id: 1}|array{title: 'a'}, array{id: 2}}>", Criteria::anyOf($condition ? ['id' => 1] : ['title' => 'a'], ['id' => 2]));
 		assertType("Shredio\\DoctrineQueries\\Criteria\\AnyOf<array{array{id: 1}}>|Shredio\\DoctrineQueries\\Criteria\\AnyOf<array{array{id: 1}, array{title: 'a'}}>", $condition ? Criteria::anyOf(['id' => 1]) : Criteria::anyOf(['id' => 1], ['title' => 'a']));
-		assertType('Closure<TAlternative of array<mixed>>(TAlternative ...): Shredio\\DoctrineQueries\\Criteria\\AnyOf<list<TAlternative>>', Criteria::anyOf(...));
+		assertType('static-Closure<TAlternative of array<mixed>>(TAlternative ...): Shredio\\DoctrineQueries\\Criteria\\AnyOf<list<TAlternative>>', Criteria::anyOf(...));
 	}
 
 	public function testAlternativesDoNotNarrowTheSelectedFields(ArrayQueries $queries): void

@@ -366,12 +366,13 @@ final class DoctrineQueriesRuleTest extends RuleTestCase
 				'Call to method Shredio\\DoctrineQueries\\Query\\ScalarQueries::findBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidField`.',
 				102,
 			],
+			// The errors of a line are listed alphabetically, as every version of PHPStan reports them in this case.
 			[
-				'Call to method Shredio\\DoctrineQueries\\Query\\ArrayQueries::findOneBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidAlternativeField`.',
+				'Call to method Shredio\\DoctrineQueries\\Query\\ArrayQueries::findOneBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidCriteriaField`.',
 				107,
 			],
 			[
-				'Call to method Shredio\\DoctrineQueries\\Query\\ArrayQueries::findOneBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidCriteriaField`.',
+				'Call to method Shredio\\DoctrineQueries\\Query\\ArrayQueries::findOneBy() - entity Tests\\Entity\\Article does not have a field or association named `$invalidFieldOfAlternative`.',
 				107,
 			],
 			[
