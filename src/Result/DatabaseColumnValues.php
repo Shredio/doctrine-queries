@@ -2,6 +2,7 @@
 
 namespace Shredio\DoctrineQueries\Result;
 
+use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\Query;
 
 /**
@@ -46,7 +47,19 @@ final readonly class DatabaseColumnValues
 	 */
 	public function asArray(): array
 	{
-		return iterator_to_array($this->yield(), false);
+		$hydrationMode = $this->query->getHydrationMode();
+		if ($hydrationMode !== AbstractQuery::HYDRATE_SCALAR) {
+			return iterator_to_array($this->yield(), false);
+		}
+
+		// Scalar hydration returns the database values as they are, so the whole column is fetched at once
+		// instead of hydrating its rows one by one.
+		try {
+			/** @var list<TValue> */
+			return $this->query->getSingleColumnResult();
+		} finally {
+			$this->query->setHydrationMode($hydrationMode); // getSingleColumnResult() switches to a mode yield() cannot iterate
+		}
 	}
 
 	/**

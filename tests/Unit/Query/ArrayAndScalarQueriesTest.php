@@ -149,6 +149,19 @@ final class ArrayAndScalarQueriesTest extends TestCase
 	}
 
 	#[DataProvider('provideQueryTypes')]
+	public function testColumnValuesCanBeReadRepeatedly(string $queryType): void
+	{
+		$this->persistFixtures();
+		$columnValues = $this->getQueries($queryType)->findColumnValuesBy(Article::class, 'author.name', orderBy: self::ByIdAscending);
+		$expectedNames = ['John Doe', 'Jane Smith', 'John Doe'];
+
+		$this->assertSame($expectedNames, $this->assertSingleQuery($columnValues->asArray(...)));
+		$this->assertSame($expectedNames, $columnValues->asArray());
+		$this->assertSame($expectedNames, iterator_to_array($columnValues->yield(), false), 'asArray() does not change how yield() hydrates.');
+		$this->assertSame(['Jane Smith'], $columnValues->setOffset(1)->setLimit(1)->asArray());
+	}
+
+	#[DataProvider('provideQueryTypes')]
 	public function testFindBySelect(string $queryType): void
 	{
 		$this->persistFixtures();
